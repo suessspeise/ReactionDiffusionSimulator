@@ -2,6 +2,7 @@
 
 ## Refactor roadmap
 
+- **Step 1.0 — produce reference output for verification**
 - **Step 1.1 — Eliminate the duplicate functions**
 Remove the legacy `GS`, `GM`, `FN` wrappers and the original implementations. Keep only the `_simulate_*` versions, renamed without the underscore. This is the most important cleanup — the duplication is the biggest source of confusion.
 *Verify: same reference output.*
