@@ -162,6 +162,109 @@ def GS(params, initial_matrices):
 
     return u,v
 
+
+def _simulate_gray_scott(params, initial_fields):
+    """
+    Integrate the Gray–Scott reaction–diffusion system (explicit Euler) with
+    human-readable parameter names.
+
+    Parameters
+    ----------
+    params : dict
+        Required keys
+            diffusion_u : float
+                Diffusion coefficient for the activator (u).
+            diffusion_v : float
+                Diffusion coefficient for the inhibitor (v).
+            feed_rate : float
+                Feed rate F.
+            kill_rate : float
+                Kill/decay rate k for v.
+            time_step : float
+                Time step Δt.
+            grid_spacing : float
+                Spatial step Δx (= Δy).
+        Optional keys
+            colormap : matplotlib.colors.Colormap, optional
+                Colormap used when saving frames.
+            fix_color_scale : bool, optional
+                If True, pass setEdge=True to makeImg for fixed color scaling.
+
+    initial_fields : tuple of ndarray
+        (U, V) full arrays (including boundary rows/cols).
+
+    Returns
+    -------
+    activator, inhibitor : ndarray
+        Interior views U[1:-1, 1:-1], V[1:-1, 1:-1] after n steps.
+
+    Notes
+    -----
+    - Uses globals: n, movieOutput, frameMod, makeImg.
+    - Boundaries are not updated (fixed at initial values).
+    """
+    diffusion_u = params["diffusion_u"]
+    diffusion_v = params["diffusion_v"]
+    feed_rate = params["feed_rate"]
+    kill_rate = params["kill_rate"]
+    time_step = params["time_step"]
+    grid_spacing = params["grid_spacing"]
+    colormap = params.get("colormap")
+    fix_color_scale = params.get("fix_color_scale", False)
+
+    U, V = initial_fields
+    activator = U[1:-1, 1:-1]
+    inhibitor = V[1:-1, 1:-1]
+
+    for step in range(n):
+        Lu, Lv = laplacian_operator(U, V, grid_spacing)
+
+        reaction = activator * inhibitor * inhibitor  # u*v^2
+        activator_rate = diffusion_u * Lu - reaction + feed_rate * (1.0 - activator)
+        inhibitor_rate = diffusion_v * Lv + reaction - (feed_rate + kill_rate) * inhibitor
+
+        activator += time_step * activator_rate
+        inhibitor += time_step * inhibitor_rate
+
+        if movieOutput:
+            if step % frameMod == 0 or step in [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150]:
+                makeImg(inhibitor, "v_" + str(step), colormap, setEdge=fix_color_scale)
+                if step % 1000 == 0:
+                    print(str(step))
+
+    return activator, inhibitor
+
+def GS(params, initial_matrices):
+    """
+    Backward-compatible wrapper for Gray–Scott using legacy parameter names.
+
+    Parameters
+    ----------
+    params : dict
+        Expected legacy keys: {'Du', 'Dv', 'F', 'k', 'dt', 'dx'}.
+        Optional: {'myCmap', 'edgeMax'}.
+    initial_matrices : tuple of ndarray
+        (U, V) full arrays.
+
+    Returns
+    -------
+    u, v : ndarray
+        Interior views after n steps.
+    """
+    mapped = {
+        "diffusion_u": params["Du"],
+        "diffusion_v": params["Dv"],
+        "feed_rate": params["F"],
+        "kill_rate": params["k"],
+        "time_step": params["dt"],
+        "grid_spacing": params["dx"],
+        "colormap": params.get("myCmap"),
+        "fix_color_scale": params.get("edgeMax", False),
+    }
+    return _simulate_gray_scott(mapped, initial_matrices)
+
+
+
 def GM(params, initial_matrices):
     """
     Integrate the Gierer–Meinhardt activator–inhibitor system (explicit Euler).
@@ -207,6 +310,128 @@ def GM(params, initial_matrices):
 
     return u,v
 
+
+def _simulate_gierer_meinhardt(params, initial_fields):
+    """
+    Integrate the Gierer–Meinhardt activator–inhibitor system (explicit Euler)
+    with human-readable parameter names.
+
+    Parameters
+    ----------
+    params : dict
+        Required keys
+            diffusion_u : float
+                Diffusion coefficient for the activator (u).
+            diffusion_v : float
+                Diffusion coefficient for the inhibitor (v).
+            reaction_rate : float
+                Global kinetic scaling (rho).
+            saturation_coeff : float
+                Saturation coefficient for inhibitor term (kappa).
+            inhibitor_decay_rate : float
+                Linear decay of inhibitor (mu).
+            activator_decay_rate : float
+                Linear decay of activator (k_u).
+            time_step : float
+                Time step Δt.
+            grid_spacing : float
+                Spatial step Δx (= Δy).
+        Optional keys
+            colormap : matplotlib.colors.Colormap
+            fix_color_scale : bool
+
+    initial_fields : tuple of ndarray
+        (U, V) full arrays (including boundary rows/cols).
+
+    Returns
+    -------
+    activator, inhibitor : ndarray
+        Interior views after n steps.
+
+    Notes
+    -----
+    - Uses globals: n, movieOutput, frameMod, makeImg.
+    - Boundaries remain fixed (not updated).
+    """
+    diffusion_u = params["diffusion_u"]
+    diffusion_v = params["diffusion_v"]
+    reaction_rate = params["reaction_rate"]          # rho
+    saturation_coeff = params["saturation_coeff"]    # kappa
+    inhibitor_decay = params["inhibitor_decay_rate"] # mu
+    activator_decay = params["activator_decay_rate"] # k_u
+    time_step = params["time_step"]
+    grid_spacing = params["grid_spacing"]
+    colormap = params.get("colormap")
+    fix_color_scale = params.get("fix_color_scale", False)
+
+    U, V = initial_fields
+    activator = U[1:-1, 1:-1]
+    inhibitor = V[1:-1, 1:-1]
+
+    for step in range(n):
+        lap_u, lap_v = laplacian_operator(U, V, grid_spacing)
+
+        inh_sq = inhibitor * inhibitor
+        inhibitor_rate = (
+            reaction_rate * (inh_sq / (activator * (1.0 + saturation_coeff * inh_sq)) - inhibitor_decay * inhibitor)
+            + diffusion_v * lap_v
+        )
+        activator_rate = (
+            reaction_rate * (inh_sq - activator_decay * activator)
+            + diffusion_u * lap_u
+        )
+
+        activator += time_step * activator_rate
+        inhibitor += time_step * inhibitor_rate
+
+        if movieOutput:
+            if step % frameMod == 0 or step in [1, 2, 3, 4, 5, 10, 40, 80, 150]:
+                makeImg(inhibitor, f"v_{step}", colormap, setEdge=fix_color_scale)
+                if step % (1000 * frameMod) == 0:
+                    print(step)
+
+    return activator, inhibitor
+
+def GM(params, initial_matrices):
+    """
+    Backward-compatible wrapper for Gierer–Meinhardt using legacy parameter names.
+
+    Parameters
+    ----------
+    params : dict
+        Legacy keys: {'Du','Dv','rho','kappa','mu','ku','kv','sv','dt','dx'}.
+        Optional: {'myCmap','edgeMax'}.
+        Note: 'kv' and 'sv' are unused by this formulation and are ignored.
+    initial_matrices : tuple of ndarray
+        (U, V) full arrays.
+
+    Returns
+    -------
+    u, v : ndarray
+        Interior views after n steps.
+    """
+    # Inform about unused legacy keys (present in defaults, but not used here).
+    if "kv" in params or "sv" in params:
+        warnings.warn(
+            "GM: legacy parameters 'kv' and 'sv' are ignored in this formulation.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    mapped = {
+        "diffusion_u":        params["Du"],
+        "diffusion_v":        params["Dv"],
+        "reaction_rate":      params["rho"],
+        "saturation_coeff":   params["kappa"],
+        "inhibitor_decay_rate": params["mu"],
+        "activator_decay_rate": params["ku"],
+        "time_step":          params["dt"],
+        "grid_spacing":       params["dx"],
+        "colormap":           params.get("myCmap"),
+        "fix_color_scale":    params.get("edgeMax", False),
+    }
+    return _simulate_gierer_meinhardt(mapped, initial_matrices)
+
 def FN(params, initial_matrices):
     """
     Integrate a FitzHugh–Nagumo-type reaction–diffusion system (explicit Euler).
@@ -248,6 +473,104 @@ def FN(params, initial_matrices):
                     print(str(i))
 
     return u,v
+
+
+def _simulate_fitzhugh_nagumo(params, initial_fields):
+    """
+    Integrate the FitzHugh–Nagumo reaction–diffusion system (explicit Euler)
+    with human-readable parameter names.
+
+    Parameters
+    ----------
+    params : dict
+        Required keys
+            diffusion_recovery : float
+                Diffusion coefficient for the recovery variable (u).
+            diffusion_excitation : float
+                Diffusion coefficient for the excitation variable (v).
+            drive : float
+                Constant drive/bias term (k) in the v-equation.
+            recovery_time_scale : float
+                Time scale τ for the recovery variable.
+            time_step : float
+                Time step Δt.
+            grid_spacing : float
+                Spatial step Δx (= Δy).
+        Optional keys
+            colormap : matplotlib.colors.Colormap
+            fix_color_scale : bool
+
+    initial_fields : tuple of ndarray
+        (U, V) full arrays (including boundary rows/cols).
+
+    Returns
+    -------
+    recovery, excitation : ndarray
+        Interior views after n steps.
+
+    Notes
+    -----
+    - Uses globals: n, movieOutput, frameMod, makeImg.
+    - Boundaries remain fixed (not updated).
+    """
+    diffusion_recovery = params["diffusion_recovery"]     # Du
+    diffusion_excitation = params["diffusion_excitation"] # Dv
+    drive = params["drive"]                               # k
+    recovery_time_scale = params["recovery_time_scale"]   # tau
+    time_step = params["time_step"]                       # dt
+    grid_spacing = params["grid_spacing"]                 # dx
+    colormap = params.get("colormap")
+    fix_color_scale = params.get("fix_color_scale", False)
+
+    U, V = initial_fields
+    recovery = U[1:-1, 1:-1]    # u
+    excitation = V[1:-1, 1:-1]  # v
+
+    for step in range(n):
+        Lu, Lv = laplacian_operator(U, V, grid_spacing)
+
+        excitation_rate = diffusion_excitation * Lv + excitation - excitation**3 - recovery + drive
+        recovery_rate = (diffusion_recovery * Lu + excitation - recovery) / recovery_time_scale
+
+        excitation += time_step * excitation_rate
+        recovery   += time_step * recovery_rate
+
+        if movieOutput:
+            if step % frameMod == 0 or step in [1, 2, 3, 4, 5, 10, 40, 80, 150]:
+                makeImg(excitation, f"v_{step}", colormap, setEdge=fix_color_scale)
+                if step % (1000 * frameMod) == 0:
+                    print(step)
+
+    return recovery, excitation
+
+
+def FN(params, initial_matrices):
+    """
+    Backward-compatible wrapper for FitzHugh–Nagumo using legacy parameter names.
+
+    Parameters
+    ----------
+    params : dict
+        Legacy keys: {'Du','Dv','k','tau','dt','dx'}; optional {'myCmap','edgeMax'}.
+    initial_matrices : tuple of ndarray
+        (U, V) full arrays.
+
+    Returns
+    -------
+    u, v : ndarray
+        Interior views after n steps.
+    """
+    mapped = {
+        "diffusion_recovery":   params["Du"],
+        "diffusion_excitation": params["Dv"],
+        "drive":                params["k"],
+        "recovery_time_scale":  params["tau"],
+        "time_step":            params["dt"],
+        "grid_spacing":         params["dx"],
+        "colormap":             params.get("myCmap"),
+        "fix_color_scale":      params.get("edgeMax", False),
+    }
+    return _simulate_fitzhugh_nagumo(mapped, initial_matrices)
 
 def setModelParams(model, verbose=True):
     """
