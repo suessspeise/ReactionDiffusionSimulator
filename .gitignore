@@ -1,2 +1,12 @@
-.idea/
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+*/.ipynb_checkpoints/
+
+temp/
 test/
+
+.DS_Store
+*/.DS_Store
