@@ -249,7 +249,7 @@ def FN(params, initial_matrices):
 
     return u,v
 
-def setModelParams(model, verbose=False):
+def setModelParams(model, verbose=True):
     """
     Select a model and assemble its default parameter dictionary.
 
