@@ -46,9 +46,36 @@ try:
 except NameError:
     input_function = input
 
-
-#makes a heatmap of the given matrix (M)
 def makeImg(M,fname, myCmap, colorbar=False, bg='black', setEdge=True):
+    """
+    Create and save a heatmap image for a 2D array.
+
+    Parameters
+    ----------
+    M : ndarray of shape (H, W)
+        Data matrix to render. May be modified in-place if `setEdge` is True.
+    fname : str
+        Basename for the saved file. Path is built from globals `savPath` and `runName`.
+    myCmap : matplotlib.colors.Colormap
+        Colormap to apply.
+    colorbar : bool, default False
+        If True, draw a colorbar.
+    bg : str, default 'black'
+        Figure and canvas background color.
+    setEdge : bool, default True
+        If True, temporarily sets M[-1, -1]=1 and M[1, 1]=0 to enforce a fixed
+        color scale across images.
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    - Saves to "{savPath}{runName}_{fname}.png" at DPI `myDPI` (globals).
+    - Only M[-1, -1] is restored (to 0); M[1, 1] remains 0, permanently altering `M`.
+    - Axes are hidden; image extent is [-1, 1] × [-1, 1].
+    """
     plt.figure()
     plt.rcParams['axes.facecolor'] = bg
     plt.rcParams['savefig.facecolor'] = bg
@@ -68,14 +95,53 @@ def makeImg(M,fname, myCmap, colorbar=False, bg='black', setEdge=True):
     plt.savefig(savPath + runName + "_" + fname + ".png",dpi=myDPI)
     plt.close()
 
-#uses the five-point stencil method of finite differences to estimate the laplace operator
 def laplacian_operator(U,V,dx):
+    """
+    Compute 2D Laplacians of U and V on the interior using a five-point stencil.
+
+    Parameters
+    ----------
+    U, V : ndarray of shape (H, W)
+        Input fields.
+    dx : float
+        Grid spacing (assumed equal in x and y).
+
+    Returns
+    -------
+    Lu, Lv : ndarray of shape (H-2, W-2)
+        Laplacians evaluated at interior points.
+
+    Notes
+    -----
+    Uses (N + S + E + W - 4C) / dx**2 and excludes boundaries.
+    """
     Lu = (U[0:-2,1:-1] + U[1:-1,0:-2] + U[1:-1,2:] + U[2:,1:-1] - 4*U[1:-1,1:-1])/dx**2
     Lv = (V[0:-2,1:-1] + V[1:-1,0:-2] + V[1:-1,2:] + V[2:,1:-1] - 4*V[1:-1,1:-1])/dx**2
     return Lu,Lv
 
-#Numerical simulation function for Gray-Scott equations
-def GS(params,initial_matrices):
+def GS(params, initial_matrices):
+    """
+    Integrate the Gray–Scott reaction–diffusion system with explicit Euler.
+
+    Parameters
+    ----------
+    params : dict
+        Keys: {'Du', 'Dv', 'F', 'k', 'dt', 'dx'}. May also include {'myCmap', 'edgeMax'}.
+    initial_matrices : tuple of ndarray
+        (U, V) including boundaries; interior is updated in-place.
+
+    Returns
+    -------
+    u, v : ndarray
+        Interior views U[1:-1, 1:-1], V[1:-1, 1:-1] after `n` steps.
+
+    Notes
+    -----
+    - Evolves for `n` steps (global).
+    - Boundaries remain fixed (not updated).
+    - If `movieOutput` (global) is True, periodically saves frames via `makeImg`.
+    - Equations: du/dt = Du∇²u − u v² + F(1 − u); dv/dt = Dv∇²v + u v² − (F + k)v.
+    """
     Du,Dv,k,F,dt,dx = params['Du'],params['Dv'],params['k'],params['F'],params['dt'],params['dx']
     U,V = initial_matrices
     u,v = U[1:-1,1:-1], V[1:-1,1:-1]
@@ -96,8 +162,30 @@ def GS(params,initial_matrices):
 
     return u,v
 
-#Numerical simulation function for Gierer-Meinhardt equations
-def GM(params,initial_matrices):
+def GM(params, initial_matrices):
+    """
+    Integrate the Gierer–Meinhardt activator–inhibitor system (explicit Euler).
+
+    Parameters
+    ----------
+    params : dict
+        Keys: {'Du','Dv','rho','kappa','mu','ku','kv','sv','dt','dx'}.
+        May also include {'myCmap', 'edgeMax'}.
+    initial_matrices : tuple of ndarray
+        (U, V) including boundaries; interior is updated in-place.
+
+    Returns
+    -------
+    u, v : ndarray
+        Interior views U[1:-1, 1:-1], V[1:-1, 1:-1] after `n` steps.
+
+    Notes
+    -----
+    - Evolves for `n` steps (global); boundaries remain fixed.
+    - If `movieOutput` (global) is True, periodically saves frames via `makeImg`.
+    - Equations: dv/dt = ρ (v² / (u (1+κ v²)) − μ v) + Dv∇²v;
+                 du/dt = ρ (v² − k_u u) + Du∇²u.
+    """
     Du,Dv,rho,kappa,mu,ku,kv,sv,dt,dx = params['Du'],params['Dv'],params['rho'],params['kappa'],params['mu'],\
         params['ku'],params['kv'],params['sv'],params['dt'],params['dx']
     U,V = initial_matrices
@@ -119,8 +207,29 @@ def GM(params,initial_matrices):
 
     return u,v
 
-#Numerical simulation function for FitzHugh-Nagumo equations
-def FN(params,initial_matrices):
+def FN(params, initial_matrices):
+    """
+    Integrate a FitzHugh–Nagumo-type reaction–diffusion system (explicit Euler).
+
+    Parameters
+    ----------
+    params : dict
+        Keys: {'Du','Dv','k','tau','dt','dx'}. May also include {'myCmap','edgeMax'}.
+    initial_matrices : tuple of ndarray
+        (U, V) including boundaries; interior is updated in-place.
+
+    Returns
+    -------
+    u, v : ndarray
+        Interior views U[1:-1, 1:-1], V[1:-1, 1:-1] after `n` steps.
+
+    Notes
+    -----
+    - Evolves for `n` steps (global); boundaries remain fixed.
+    - If `movieOutput` (global) is True, periodically saves frames via `makeImg`.
+    - Equations: dv/dt = Dv∇²v + v − v³ − u + k;
+                 du/dt = (Du∇²u + v − u)/τ.
+    """
     U,V = initial_matrices
     u,v = U[1:-1,1:-1], V[1:-1,1:-1]
     Du,Dv,k,tau,dt,dx = params['Du'],params['Dv'],params['k'],params['tau'],params['dt'],params['dx']
@@ -140,8 +249,30 @@ def FN(params,initial_matrices):
 
     return u,v
 
-#Set model function and params
-def setModelParams(model):
+def setModelParams(model, verbose=False):
+    """
+    Select a model and assemble its default parameter dictionary.
+
+    Parameters
+    ----------
+    model : {'FN', 'GM', 'GS'}
+        Model identifier.
+    verbose : bool, default False
+        If True, print selection details and warnings.
+
+    Returns
+    -------
+    params : dict
+        Parameter dictionary for the chosen model (includes plotting keys).
+    modelFunc : callable
+        The corresponding simulator function (FN, GM, or GS).
+
+    Notes
+    -----
+    - Sets global `size` (FN case).
+    - For 'FN', computes dx=2/size and dt=0.9*dx**2/2 for stability.
+    - For 'GS', prompts for a parameter preset and an initial seed via stdin.
+    """
     global size
     if model == "FN":
         print("FitzHugh-Nagumo model selected")
