@@ -141,7 +141,6 @@ class Renderer:
         Expected keys:
             colormap        : matplotlib.colors.Colormap
             fix_color_scale : bool
-            output_directory: str
             simulation_name : str
             output_dpi      : int
         Optional keys:
@@ -149,15 +148,18 @@ class Renderer:
     """
 
     def __init__(self, params: dict):
+        self.simulation_name  = params["simulation_name"]
+        self.output_directory = self.simulation_name + '_images'
         self.colormap         = params["colormap"]
         self.fix_color_scale  = params["fix_color_scale"]
-        self.output_directory = params["output_directory"]
-        self.simulation_name  = params["simulation_name"]
         self.output_dpi       = params["output_dpi"]
         self.bg               = params.get("bg", "black")
 
+        if not os.path.exists(self.output_directory):
+            os.makedirs(self.output_directory)
+
     def _build_path(self, label: str) -> str:
-        return f"{self.output_directory}{self.simulation_name}_{label}.png"
+        return os.path.join(self.output_directory, f"{self.simulation_name}_{label}.png")
 
     def _render(self, M: np.ndarray, label: str, colorbar: bool = False):
         """
@@ -655,11 +657,7 @@ def arg_parse():
             print("please enter two-letter model name from list\n")
             model = ""
 
-    #create output dir
-    runName = args.outname
-    savPath = args.outname + "_images/"
-    if not os.path.exists(savPath):
-        os.makedirs(savPath)
+
 
     #set up image saving
     totFrames = 250
@@ -678,30 +676,24 @@ def arg_parse():
         print("Movie mode set to OFF")
 
 
-
-    #get params for model
-    params, modelFunc, modelClass = setModelParams(model)
-
-    # this serves no purpose yet, other than to show how 
-    # parameters are going to be separated in the future
     run_config = {
         "save_frames" : movieOutput,
         "frame_interval" : frameMod,
         "output_dpi" : myDPI,
-        "output_directory" : savPath,
-        "simulation_name" : runName,
+        "simulation_name" : args.outname,
         "max_frames" : totFrames, #(implicit in frameMod currently)
+        "n_steps" : n    
     }
-    for k,v in run_config.items():
-        if not k in params.keys(): params[k] = v
-    params["n_steps"] = n
-
-
-    return params, modelFunc, modelClass
+    
+    return model, run_config
 
 
 if __name__ == "__main__":
-    params, modelFunc, modelClass = arg_parse()
+    model, run_config = arg_parse()
+    params, modelFunc, modelClass = setModelParams(model)
+    for k,v in run_config.items():
+        if not k in params.keys(): params[k] = v
+
 
     grid = SimulationGrid(params["grid_size"], params["grid_spacing"])
     grid.seed(params["seed"])
