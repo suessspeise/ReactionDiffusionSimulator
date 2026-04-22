@@ -3,11 +3,9 @@
 ## Refactor roadmap
 
 - **Step 1.0 — produce reference output for verification**
-- **Step 1.1 — Eliminate the duplicate functions**
-Remove the legacy `GS`, `GM`, `FN` wrappers and the original implementations. Keep only the `_simulate_*` versions, renamed without the underscore. This is the most important cleanup — the duplication is the biggest source of confusion.
-*Verify: same reference output.*
+- **✅ Step 1.1 — Eliminate the duplicate functions and legacy wrappers** 
 - **Step 1.2 — Kill the globals**
-Replace `n`, `movieOutput`, `frameMod`, `size`, `myDPI`, `savPath`, `runName` with explicit parameters passed into functions. The `__main__` block assembles them and passes them down. This is tedious but mechanical.
+Replace `n`, `movieOutput`, `frameMod`, `size`, `myDPI`, `savPath`, `runName` with explicit parameters passed into functions. The `__main__` block assembles them and passes them down.
 *Verify: same reference output.*
 - **Step 1.3 — Fix the `makeImg` mutation bug**
 The `M[1,1]` permanent alteration. Small fix, but do it now before the renderer gets wrapped in a class.

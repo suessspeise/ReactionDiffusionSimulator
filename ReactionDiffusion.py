@@ -119,51 +119,7 @@ def laplacian_operator(U,V,dx):
     Lv = (V[0:-2,1:-1] + V[1:-1,0:-2] + V[1:-1,2:] + V[2:,1:-1] - 4*V[1:-1,1:-1])/dx**2
     return Lu,Lv
 
-def GS(params, initial_matrices):
-    """
-    Integrate the Gray–Scott reaction–diffusion system with explicit Euler.
-
-    Parameters
-    ----------
-    params : dict
-        Keys: {'Du', 'Dv', 'F', 'k', 'dt', 'dx'}. May also include {'myCmap', 'edgeMax'}.
-    initial_matrices : tuple of ndarray
-        (U, V) including boundaries; interior is updated in-place.
-
-    Returns
-    -------
-    u, v : ndarray
-        Interior views U[1:-1, 1:-1], V[1:-1, 1:-1] after `n` steps.
-
-    Notes
-    -----
-    - Evolves for `n` steps (global).
-    - Boundaries remain fixed (not updated).
-    - If `movieOutput` (global) is True, periodically saves frames via `makeImg`.
-    - Equations: du/dt = Du∇²u − u v² + F(1 − u); dv/dt = Dv∇²v + u v² − (F + k)v.
-    """
-    Du,Dv,k,F,dt,dx = params['Du'],params['Dv'],params['k'],params['F'],params['dt'],params['dx']
-    U,V = initial_matrices
-    u,v = U[1:-1,1:-1], V[1:-1,1:-1]
-    for i in range(n):
-        Lu,Lv = laplacian_operator(U,V,dx)
-        uvv = u*v*v
-        su = Du*Lu - uvv + F *(1-u)
-        sv = Dv*Lv + uvv - (F+k)*v
-        u += dt*su
-        v += dt*sv
-
-        if movieOutput:
-            #Some manually set initial frames to grab so we can see how the system evolves early on
-            if i % frameMod == 0 or i in [1,2,3,4,5,10,15,20,30,40,50,60,70,80,90,100,110,120,150]:
-                makeImg(v,"v_" + str(i),params["myCmap"],setEdge=params["edgeMax"])
-                if i % 1000*frameMod == 0:
-                    print(str(i))
-
-    return u,v
-
-
-def _simulate_gray_scott(params, initial_fields):
+def simulate_gray_scott(params, initial_fields):
     """
     Integrate the Gray–Scott reaction–diffusion system (explicit Euler) with
     human-readable parameter names.
@@ -234,84 +190,7 @@ def _simulate_gray_scott(params, initial_fields):
 
     return activator, inhibitor
 
-def GS(params, initial_matrices):
-    """
-    Backward-compatible wrapper for Gray–Scott using legacy parameter names.
-
-    Parameters
-    ----------
-    params : dict
-        Expected legacy keys: {'Du', 'Dv', 'F', 'k', 'dt', 'dx'}.
-        Optional: {'myCmap', 'edgeMax'}.
-    initial_matrices : tuple of ndarray
-        (U, V) full arrays.
-
-    Returns
-    -------
-    u, v : ndarray
-        Interior views after n steps.
-    """
-    mapped = {
-        "diffusion_u": params["Du"],
-        "diffusion_v": params["Dv"],
-        "feed_rate": params["F"],
-        "kill_rate": params["k"],
-        "time_step": params["dt"],
-        "grid_spacing": params["dx"],
-        "colormap": params.get("myCmap"),
-        "fix_color_scale": params.get("edgeMax", False),
-    }
-    return _simulate_gray_scott(mapped, initial_matrices)
-
-
-
-def GM(params, initial_matrices):
-    """
-    Integrate the Gierer–Meinhardt activator–inhibitor system (explicit Euler).
-
-    Parameters
-    ----------
-    params : dict
-        Keys: {'Du','Dv','rho','kappa','mu','ku','kv','sv','dt','dx'}.
-        May also include {'myCmap', 'edgeMax'}.
-    initial_matrices : tuple of ndarray
-        (U, V) including boundaries; interior is updated in-place.
-
-    Returns
-    -------
-    u, v : ndarray
-        Interior views U[1:-1, 1:-1], V[1:-1, 1:-1] after `n` steps.
-
-    Notes
-    -----
-    - Evolves for `n` steps (global); boundaries remain fixed.
-    - If `movieOutput` (global) is True, periodically saves frames via `makeImg`.
-    - Equations: dv/dt = ρ (v² / (u (1+κ v²)) − μ v) + Dv∇²v;
-                 du/dt = ρ (v² − k_u u) + Du∇²u.
-    """
-    Du,Dv,rho,kappa,mu,ku,kv,sv,dt,dx = params['Du'],params['Dv'],params['rho'],params['kappa'],params['mu'],\
-        params['ku'],params['kv'],params['sv'],params['dt'],params['dx']
-    U,V = initial_matrices
-    u,v = U[1:-1,1:-1], V[1:-1,1:-1]
-    for i in range(n):
-        Lu,Lv = laplacian_operator(U,V,dx)
-        vv = v*v
-        sv = rho*(vv/(u*(1+kappa*vv)) - mu*v) + Dv*Lv
-        su = rho*(vv - ku*u) + Du*Lu
-        u += dt*su
-        v += dt*sv
-
-        if movieOutput:
-            #Some manually set initial frames to grab so we can see how the system evolves early on
-            if i % frameMod == 0 or i in [1,2,3,4,5,10,40,80,150]:
-                makeImg(v,"v_" + str(i),params["myCmap"],setEdge=params["edgeMax"])
-                if i % 1000*frameMod == 0:
-                    print(str(i))
-
-    return u,v
-
-
-def _simulate_gierer_meinhardt(params, initial_fields):
+def simulate_gierer_meinhardt(params, initial_fields):
     """
     Integrate the Gierer–Meinhardt activator–inhibitor system (explicit Euler)
     with human-readable parameter names.
@@ -392,90 +271,7 @@ def _simulate_gierer_meinhardt(params, initial_fields):
 
     return activator, inhibitor
 
-def GM(params, initial_matrices):
-    """
-    Backward-compatible wrapper for Gierer–Meinhardt using legacy parameter names.
-
-    Parameters
-    ----------
-    params : dict
-        Legacy keys: {'Du','Dv','rho','kappa','mu','ku','kv','sv','dt','dx'}.
-        Optional: {'myCmap','edgeMax'}.
-        Note: 'kv' and 'sv' are unused by this formulation and are ignored.
-    initial_matrices : tuple of ndarray
-        (U, V) full arrays.
-
-    Returns
-    -------
-    u, v : ndarray
-        Interior views after n steps.
-    """
-    # Inform about unused legacy keys (present in defaults, but not used here).
-    if "kv" in params or "sv" in params:
-        warnings.warn(
-            "GM: legacy parameters 'kv' and 'sv' are ignored in this formulation.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-
-    mapped = {
-        "diffusion_u":        params["Du"],
-        "diffusion_v":        params["Dv"],
-        "reaction_rate":      params["rho"],
-        "saturation_coeff":   params["kappa"],
-        "inhibitor_decay_rate": params["mu"],
-        "activator_decay_rate": params["ku"],
-        "time_step":          params["dt"],
-        "grid_spacing":       params["dx"],
-        "colormap":           params.get("myCmap"),
-        "fix_color_scale":    params.get("edgeMax", False),
-    }
-    return _simulate_gierer_meinhardt(mapped, initial_matrices)
-
-def FN(params, initial_matrices):
-    """
-    Integrate a FitzHugh–Nagumo-type reaction–diffusion system (explicit Euler).
-
-    Parameters
-    ----------
-    params : dict
-        Keys: {'Du','Dv','k','tau','dt','dx'}. May also include {'myCmap','edgeMax'}.
-    initial_matrices : tuple of ndarray
-        (U, V) including boundaries; interior is updated in-place.
-
-    Returns
-    -------
-    u, v : ndarray
-        Interior views U[1:-1, 1:-1], V[1:-1, 1:-1] after `n` steps.
-
-    Notes
-    -----
-    - Evolves for `n` steps (global); boundaries remain fixed.
-    - If `movieOutput` (global) is True, periodically saves frames via `makeImg`.
-    - Equations: dv/dt = Dv∇²v + v − v³ − u + k;
-                 du/dt = (Du∇²u + v − u)/τ.
-    """
-    U,V = initial_matrices
-    u,v = U[1:-1,1:-1], V[1:-1,1:-1]
-    Du,Dv,k,tau,dt,dx = params['Du'],params['Dv'],params['k'],params['tau'],params['dt'],params['dx']
-    for i in range(n):
-        Lu,Lv = laplacian_operator(U,V,dx)
-        sv = Dv*Lv + v - v*v*v - u + k
-        su = (Du*Lu + v - u)/tau
-        u += dt*su
-        v += dt*sv
-
-        if movieOutput:
-            #Some manually set initial frames to grab so we can see how the system evolves early on
-            if i % frameMod == 0 or i in [1,2,3,4,5,10,40,80,150]:
-                makeImg(v,"v_" + str(i),params["myCmap"],setEdge=params["edgeMax"])
-                if i % 1000*frameMod == 0:
-                    print(str(i))
-
-    return u,v
-
-
-def _simulate_fitzhugh_nagumo(params, initial_fields):
+def simulate_fitzhugh_nagumo(params, initial_fields):
     """
     Integrate the FitzHugh–Nagumo reaction–diffusion system (explicit Euler)
     with human-readable parameter names.
@@ -544,34 +340,6 @@ def _simulate_fitzhugh_nagumo(params, initial_fields):
     return recovery, excitation
 
 
-def FN(params, initial_matrices):
-    """
-    Backward-compatible wrapper for FitzHugh–Nagumo using legacy parameter names.
-
-    Parameters
-    ----------
-    params : dict
-        Legacy keys: {'Du','Dv','k','tau','dt','dx'}; optional {'myCmap','edgeMax'}.
-    initial_matrices : tuple of ndarray
-        (U, V) full arrays.
-
-    Returns
-    -------
-    u, v : ndarray
-        Interior views after n steps.
-    """
-    mapped = {
-        "diffusion_recovery":   params["Du"],
-        "diffusion_excitation": params["Dv"],
-        "drive":                params["k"],
-        "recovery_time_scale":  params["tau"],
-        "time_step":            params["dt"],
-        "grid_spacing":         params["dx"],
-        "colormap":             params.get("myCmap"),
-        "fix_color_scale":      params.get("edgeMax", False),
-    }
-    return _simulate_fitzhugh_nagumo(mapped, initial_matrices)
-
 def setModelParams(model, verbose=True):
     """
     Select a model and assemble its default parameter dictionary.
@@ -599,7 +367,7 @@ def setModelParams(model, verbose=True):
     global size
     if model == "FN":
         print("FitzHugh-Nagumo model selected")
-        modelFunc = FN
+        modelFunc = simulate_fitzhugh_nagumo
         print("SETTING GRID SIZE TO 120 - STABILITY REASONS")
         print("WARNING: IF TIMESTEPS LESS THAN 80000, NO PATTERN MAY APPEAR")
         #FitzHugh-Nagumo requires fine-timestepping
@@ -607,16 +375,39 @@ def setModelParams(model, verbose=True):
         dx = 2./size
         dt = 0.9 * dx**2/2
         params = {"Du":5e-3, "Dv":2.8e-4, "tau":0.1, "k":-0.005,"myCmap":plt.cm.PRGn,"edgeMax":False,"dt":dt,"dx":dx,"seed":"noise"}
+        params = {
+            "diffusion_recovery":   params["Du"],
+            "diffusion_excitation": params["Dv"],
+            "drive":                params["k"],
+            "recovery_time_scale":  params["tau"],
+            "time_step":            params["dt"],
+            "grid_spacing":         params["dx"],
+            "colormap":             params.get("myCmap"),
+            "fix_color_scale":      params.get("edgeMax", False),
+        }
+
 
     elif model == "GM":
         print("Gierer-Meinhardt model selected")
-        modelFunc = GM
+        modelFunc = simulate_gierer_meinhardt
         params = {"Du":2, "Dv":0.1, "rho":0.5, "kappa":0.238, "mu":1, "ku":0.9, "kv":1.0, "sv":0.3,
                   "myCmap":plt.cm.copper,"edgeMax":False,"dt":0.1,"dx":1,"seed":"noise"}
+        params = {
+            "diffusion_u":        params["Du"],
+            "diffusion_v":        params["Dv"],
+            "reaction_rate":      params["rho"],
+            "saturation_coeff":   params["kappa"],
+            "inhibitor_decay_rate": params["mu"],
+            "activator_decay_rate": params["ku"],
+            "time_step":          params["dt"],
+            "grid_spacing":       params["dx"],
+            "colormap":           params.get("myCmap"),
+            "fix_color_scale":    params.get("edgeMax", False),
+        }
 
     elif model == "GS":
         print("Gray-Scott model selected")
-        modelFunc = GS
+        modelFunc = simulate_gray_scott
         pnames = ["solitons","coral","maze","waves","flicker","worms"]
         pvals = [{"Du":0.14, "Dv":0.06, "F":0.035, "k":0.065,"myCmap":plt.cm.copper,"edgeMax":False,"dt":1,"dx":1},
                 {"Du":0.16, "Dv":0.08, "F":0.06, "k":0.062,"myCmap":plt.cm.cubehelix,"edgeMax":False,"dt":1,"dx":1},
@@ -648,6 +439,16 @@ def setModelParams(model, verbose=True):
                 seed = ""
 
         params["seed"] = seed
+        params = {
+            "diffusion_u": params["Du"],
+            "diffusion_v": params["Dv"],
+            "feed_rate": params["F"],
+            "kill_rate": params["k"],
+            "time_step": params["dt"],
+            "grid_spacing": params["dx"],
+            "colormap": params.get("myCmap"),
+            "fix_color_scale": params.get("edgeMax", False),
+        }
 
     return params, modelFunc
 
