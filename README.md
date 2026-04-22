@@ -10,11 +10,11 @@ Replace `n`, `movieOutput`, `frameMod`, `size`, `myDPI`, `savPath`, `runName` wi
 - **✅ Step 1.3 — Fix the `makeImg` mutation bug**
 The `M[1,1]` permanent alteration. Small fix, but do it now before the renderer gets wrapped in a class.
 *Verify: same reference output (the bug likely has negligible effect on most runs, but fix it cleanly).*
-- **Step 2.1 — Create the class, move data into it**
+- **✅ Step 2.1 — Create the class, move data into it**
 `SimulationGrid` holds `U`, `V`, `size`, `dx`. Constructor takes `size` and `dx`, initialises the arrays. Nothing else yet.
-- **Step 2.2 — Move seeding logic in**
+- **✅Step 2.2 — Move seeding logic in**
 The `single` / `dual` / `noise` initialisation block moves in as a `seed(method)` method.
-- **Step 2.3 — Move `laplacian_operator` in**
+- **✅Step 2.3 — Move `laplacian_operator` in**
 Becomes `grid.laplacian()`, operates on `self.U` and `self.V`.
 *Verify: call `grid.laplacian()` and compare output to the old standalone function on the same arrays.*
 - **Step 3.1 — Abstract base class**

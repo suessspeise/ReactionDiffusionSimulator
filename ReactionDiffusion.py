@@ -40,6 +40,119 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import argparse
 
+
+class SimulationGrid:
+    """
+    Owns the spatial domain and field arrays for a 2D reaction-diffusion simulation.
+
+    The full arrays U and V include a one-cell boundary ring that remains fixed
+    during simulation, allowing the five-point Laplacian stencil to operate on
+    interior cells without edge-case logic.
+
+    Parameters
+    ----------
+    grid_size : int
+        Number of cells along each dimension (including boundary).
+    grid_spacing : float
+        Spatial step size dx (assumed equal in x and y).
+    """
+
+    def __init__(self, grid_size: int, grid_spacing: float):
+        self.grid_size = grid_size
+        self.grid_spacing = grid_spacing
+
+        self.U = np.zeros((grid_size, grid_size))
+        self.V = np.zeros((grid_size, grid_size))
+
+        # initialise interior of U to 1.0 (standard baseline)
+        self.u[:] = 1.0
+
+    @property
+    def u(self):
+        """Interior view of U (excludes boundary ring)."""
+        return self.U[1:-1, 1:-1]
+
+    @property
+    def v(self):
+        """Interior view of V (excludes boundary ring)."""
+        return self.V[1:-1, 1:-1]
+
+    def seed(self, method: str):
+        """
+        Set initial conditions on the field arrays.
+
+        Parameters
+        ----------
+        method : {'single', 'dual', 'noise'}
+            single — one central square perturbation
+            dual   — two off-centre square perturbations
+            noise  — fully random initialisation
+        """
+        s = self.grid_size
+
+        if method == "single":
+            r = 20
+            self.U[s//2-r : s//2+r, s//2-r : s//2+r] = 0.50
+            self.V[s//2-r : s//2+r, s//2-r : s//2+r] = 0.25
+
+        elif method == "dual":
+            r = 15
+            self.U[s//4-r   : s//4+r,   s//4-r   : s//4+r]   = 0.50
+            self.V[s//4-r   : s//4+r,   s//4-r   : s//4+r]   = 0.25
+            self.U[3*s//4-r : 3*s//4+r, 3*s//4-r : 3*s//4+r] = 0.50
+            self.V[3*s//4-r : 3*s//4+r, 3*s//4-r : 3*s//4+r] = 0.25
+
+        elif method == "noise":
+            interior_size = self.grid_size - 2
+            self.u[:] = np.random.rand(interior_size, interior_size)
+            self.v[:] = np.random.rand(interior_size, interior_size)
+
+        else:
+            raise ValueError(f"Unknown seed method '{method}'. Choose from: single, dual, noise.")
+
+    def laplacian(self):
+        """
+        Compute the 2D Laplacian of U and V on the interior using a five-point stencil.
+
+        Returns
+        -------
+        Lu, Lv : ndarray of shape (grid_size-2, grid_size-2)
+            Laplacians evaluated at interior points.
+        """
+        dx2 = self.grid_spacing ** 2
+        U, V = self.U, self.V
+
+        Lu = (U[0:-2,1:-1] + U[1:-1,0:-2] + U[1:-1,2:] + U[2:,1:-1] - 4*U[1:-1,1:-1]) / dx2
+        Lv = (V[0:-2,1:-1] + V[1:-1,0:-2] + V[1:-1,2:] + V[2:,1:-1] - 4*V[1:-1,1:-1]) / dx2
+
+        return Lu, Lv
+
+# def laplacian_operator(U,V,dx):
+#     """
+#     Compute 2D Laplacians of U and V on the interior using a five-point stencil.
+
+#     Parameters
+#     ----------
+#     U, V : ndarray of shape (H, W)
+#         Input fields.
+#     dx : float
+#         Grid spacing (assumed equal in x and y).
+
+#     Returns
+#     -------
+#     Lu, Lv : ndarray of shape (H-2, W-2)
+#         Laplacians evaluated at interior points.
+
+#     Notes
+#     -----
+#     Uses (N + S + E + W - 4C) / dx**2 and excludes boundaries.
+#     """
+#     Lu = (U[0:-2,1:-1] + U[1:-1,0:-2] + U[1:-1,2:] + U[2:,1:-1] - 4*U[1:-1,1:-1])/dx**2
+#     Lv = (V[0:-2,1:-1] + V[1:-1,0:-2] + V[1:-1,2:] + V[2:,1:-1] - 4*V[1:-1,1:-1])/dx**2
+#     return Lu,Lv
+
+
+
 def makeImg(M,fname, params, colorbar=False, bg='black'):
     """
     Create and save a heatmap image for a 2D array.
@@ -92,31 +205,7 @@ def makeImg(M,fname, params, colorbar=False, bg='black'):
     plt.savefig(params["output_directory"] + params["simulation_name"] + "_" + fname + ".png", dpi=params["output_dpi"])
     plt.close()
 
-def laplacian_operator(U,V,dx):
-    """
-    Compute 2D Laplacians of U and V on the interior using a five-point stencil.
-
-    Parameters
-    ----------
-    U, V : ndarray of shape (H, W)
-        Input fields.
-    dx : float
-        Grid spacing (assumed equal in x and y).
-
-    Returns
-    -------
-    Lu, Lv : ndarray of shape (H-2, W-2)
-        Laplacians evaluated at interior points.
-
-    Notes
-    -----
-    Uses (N + S + E + W - 4C) / dx**2 and excludes boundaries.
-    """
-    Lu = (U[0:-2,1:-1] + U[1:-1,0:-2] + U[1:-1,2:] + U[2:,1:-1] - 4*U[1:-1,1:-1])/dx**2
-    Lv = (V[0:-2,1:-1] + V[1:-1,0:-2] + V[1:-1,2:] + V[2:,1:-1] - 4*V[1:-1,1:-1])/dx**2
-    return Lu,Lv
-
-def simulate_gray_scott(params, initial_fields):
+def simulate_gray_scott(params, grid):
     """
     Integrate the Gray–Scott reaction–diffusion system (explicit Euler) with
     human-readable parameter names.
@@ -165,12 +254,15 @@ def simulate_gray_scott(params, initial_fields):
     colormap = params.get("colormap")
     fix_color_scale = params.get("fix_color_scale", False)
 
-    U, V = initial_fields
-    activator = U[1:-1, 1:-1]
-    inhibitor = V[1:-1, 1:-1]
+    # U, V = initial_fields
+    # activator = U[1:-1, 1:-1]
+    # inhibitor = V[1:-1, 1:-1]
+    activator = grid.u
+    inhibitor = grid.v
 
     for step in range(params["n_steps"]):
-        Lu, Lv = laplacian_operator(U, V, grid_spacing)
+        # Lu, Lv = laplacian_operator(U, V, grid_spacing)
+        Lu, Lv = grid.laplacian()
 
         reaction = activator * inhibitor * inhibitor  # u*v^2
         activator_rate = diffusion_u * Lu - reaction + feed_rate * (1.0 - activator)
@@ -185,9 +277,9 @@ def simulate_gray_scott(params, initial_fields):
                 if step % 1000 == 0:
                     print(str(step))
 
-    return activator, inhibitor
+    # return activator, inhibitor
 
-def simulate_gierer_meinhardt(params, initial_fields):
+def simulate_gierer_meinhardt(params, grid):
     """
     Integrate the Gierer–Meinhardt activator–inhibitor system (explicit Euler)
     with human-readable parameter names.
@@ -240,21 +332,24 @@ def simulate_gierer_meinhardt(params, initial_fields):
     colormap = params.get("colormap")
     fix_color_scale = params.get("fix_color_scale", False)
 
-    U, V = initial_fields
-    activator = U[1:-1, 1:-1]
-    inhibitor = V[1:-1, 1:-1]
+    # U, V = initial_fields
+    # activator = U[1:-1, 1:-1]
+    # inhibitor = V[1:-1, 1:-1]
+    activator = grid.u
+    inhibitor = grid.v
 
     for step in range(params["n_steps"]):
-        lap_u, lap_v = laplacian_operator(U, V, grid_spacing)
+        # lap_u, lap_v = laplacian_operator(U, V, grid_spacing)
+        Lu, Lv = grid.laplacian()
 
         inh_sq = inhibitor * inhibitor
         inhibitor_rate = (
             reaction_rate * (inh_sq / (activator * (1.0 + saturation_coeff * inh_sq)) - inhibitor_decay * inhibitor)
-            + diffusion_v * lap_v
+            + diffusion_v * Lv
         )
         activator_rate = (
             reaction_rate * (inh_sq - activator_decay * activator)
-            + diffusion_u * lap_u
+            + diffusion_u * Lu
         )
 
         activator += time_step * activator_rate
@@ -268,7 +363,7 @@ def simulate_gierer_meinhardt(params, initial_fields):
 
     return activator, inhibitor
 
-def simulate_fitzhugh_nagumo(params, initial_fields):
+def simulate_fitzhugh_nagumo(params, grid):
     """
     Integrate the FitzHugh–Nagumo reaction–diffusion system (explicit Euler)
     with human-readable parameter names.
@@ -315,12 +410,15 @@ def simulate_fitzhugh_nagumo(params, initial_fields):
     colormap = params.get("colormap")
     fix_color_scale = params.get("fix_color_scale", False)
 
-    U, V = initial_fields
-    recovery = U[1:-1, 1:-1]    # u
-    excitation = V[1:-1, 1:-1]  # v
+    # U, V = initial_fields
+    # recovery = U[1:-1, 1:-1]    # u
+    # excitation = V[1:-1, 1:-1]  # v
+    recovery = grid.u
+    excitation = grid.v
 
     for step in range(params["n_steps"]):
-        Lu, Lv = laplacian_operator(U, V, grid_spacing)
+        # Lu, Lv = laplacian_operator(U, V, grid_spacing)
+        Lu, Lv = grid.laplacian() 
 
         excitation_rate = diffusion_excitation * Lv + excitation - excitation**3 - recovery + drive
         recovery_rate = (diffusion_recovery * Lu + excitation - recovery) / recovery_time_scale
@@ -533,45 +631,12 @@ def arg_parse():
 
     return params, modelFunc
 
-def create_initial_matrices(grid_size):
-    #set initial conditions
-    U = np.zeros((grid_size, grid_size))
-    V = np.zeros((grid_size, grid_size))
-    u,v = U[1:-1,1:-1], V[1:-1,1:-1]
-    u+=1.0
-
-    #sets initialization of single or double squares, or completely random
-    if params["seed"] == "single":
-        r = 20
-        U[grid_size//2-r:grid_size//2+r,grid_size//2-r:grid_size//2+r] = 0.50
-        V[grid_size//2-r:grid_size//2+r,grid_size//2-r:grid_size//2+r] = 0.25
-    elif params["seed"] == "dual":
-        r = 15
-        U[grid_size//4-r:grid_size//4+r,grid_size//4-r:grid_size//4+r] = 0.50
-        V[grid_size//4-r:grid_size//4+r,grid_size//4-r:grid_size//4+r] = 0.25
-        U[3*grid_size//4-r:3*grid_size//4+r,3*grid_size//4-r:3*grid_size//4+r] = 0.50
-        V[3*grid_size//4-r:3*grid_size//4+r,3*grid_size//4-r:3*grid_size//4+r] = 0.25
-
-    else: #seed with random noise
-        # if not model == 'GM':
-        u-=1
-        u+=np.random.rand(len(u),len(u))
-        v+=np.random.rand(len(u),len(u))
-
-        # else:
-        #     #add small amount of noise everywhere
-        #     u += (0.01 + 0.01*(np.random.random((size-2,size-2))*2-1))
-        #     v += (0.01 + 0.01*(np.random.random((size-2,size-2))*2-1))
-
-    return (U,V)
-
-
 if __name__ == "__main__":
     params, modelFunc = arg_parse()
     
-    U,V = create_initial_matrices(params["grid_size"])
-    u,v = U[1:-1,1:-1], V[1:-1,1:-1]
+    grid = SimulationGrid(params["grid_size"], params["grid_spacing"])
+    grid.seed(params["seed"])
 
-    makeImg(v, "initial_v", params)
-    u,v = modelFunc(params, (U,V))
-    makeImg(v, "final_v", params)
+    makeImg(grid.v, "initial_v", params)
+    modelFunc(params, grid)
+    makeImg(grid.v, "final_v", params)
