@@ -128,6 +128,89 @@ class SimulationGrid:
 
         return Lu, Lv
 
+class Renderer:
+    """
+    Handles rendering and saving of simulation field snapshots.
+
+    Owns all rendering configuration. The simulation and runner
+    are entirely agnostic of how or whether frames are saved.
+
+    Parameters
+    ----------
+    params : dict
+        Expected keys:
+            colormap        : matplotlib.colors.Colormap
+            fix_color_scale : bool
+            output_directory: str
+            simulation_name : str
+            output_dpi      : int
+        Optional keys:
+            bg              : str  (default 'black')
+    """
+
+    def __init__(self, params: dict):
+        self.colormap         = params["colormap"]
+        self.fix_color_scale  = params["fix_color_scale"]
+        self.output_directory = params["output_directory"]
+        self.simulation_name  = params["simulation_name"]
+        self.output_dpi       = params["output_dpi"]
+        self.bg               = params.get("bg", "black")
+
+    def _build_path(self, label: str) -> str:
+        return f"{self.output_directory}{self.simulation_name}_{label}.png"
+
+    def _render(self, M: np.ndarray, label: str, colorbar: bool = False):
+        """
+        Internal: render a single field snapshot and save to disk.
+
+        Uses explicit vmin/vmax instead of sentinel value mutation
+        to enforce a fixed color scale.
+        """
+        vmin, vmax = (0.0, 1.0) if self.fix_color_scale else (None, None)
+
+        plt.figure()
+        plt.rcParams['axes.facecolor']    = self.bg
+        plt.rcParams['savefig.facecolor'] = self.bg
+        plt.axis('off')
+
+        plt.imshow(M, cmap=self.colormap, extent=[-1, 1, -1, 1],
+                   vmin=vmin, vmax=vmax)
+
+        if colorbar:
+            plt.colorbar()
+
+        plt.savefig(self._build_path(label), dpi=self.output_dpi)
+        plt.close()
+
+    def save_frame(self, step: int, grid: SimulationGrid, colorbar: bool = False):
+        """
+        Save the current inhibitor field as a numbered frame.
+
+        This is the method intended for use as a runner callback.
+
+        Parameters
+        ----------
+        step : int
+            Current simulation step, used to label the file.
+        grid : SimulationGrid
+        """
+        self._render(grid.v, f"v_{step}", colorbar)
+
+    def save_image(self, label: str, grid: SimulationGrid, colorbar: bool = False):
+        """
+        Save the current inhibitor field with an arbitrary label.
+
+        Intended for one-off snapshots such as initial and final state.
+
+        Parameters
+        ----------
+        label : str
+            Descriptive label used in the filename.
+        grid : SimulationGrid
+        """
+        self._render(grid.v, label, colorbar)
+
+
 
 def makeImg(M,fname, params, colorbar=False, bg='black'):
     """
@@ -783,6 +866,13 @@ if __name__ == "__main__":
 
     model = modelClass(params)
 
-    makeImg(grid.v, "initial_v", params)
-    model.run(grid, params["n_steps"])
-    makeImg(grid.v, "final_v", params)
+    renderer = Renderer(params)
+    renderer.save_image("initial_v", grid)
+    model.run(grid, params["n_steps"], callback=renderer.save_frame)
+    renderer.save_image("final_v", grid)
+
+    # makeImg(grid.v, "initial_v", params)
+    # model.run(grid, params["n_steps"])
+    # makeImg(grid.v, "final_v", params)
+
+    

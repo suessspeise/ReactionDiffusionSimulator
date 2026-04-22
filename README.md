@@ -26,12 +26,9 @@ Port `_simulate_gray_scott` into a class. `step(grid)` does one Euler step. `run
 Same pattern. One at a time, each verified against its own reference output.
 - **✅ Step 3.4 — figure out how to actually use the OOP models, without skipping more steps. 
 
-- **Step 4.1 — Wrap `makeImg` in a `Renderer` class**
-At this stage it still uses matplotlib internally — no Pillow yet. The class just encapsulates the current logic cleanly. Interface: `renderer.save_frame(array, label)`.
-move colormap and `fix_color_scale` out of `model_params` and into the Renderer constructor.
-- **Step 4.2 — Create `SimulationRunner`**
-Takes a model, a grid, a renderer, and run config. Owns the frame cadence logic and the early-frame list. Wires everything together. The `__main__` block becomes: parse args → construct objects → `runner.run()`.
-*Verify: full end-to-end run matches reference output.*
+- **✅ Step 4.1 — Wrap `makeImg` in a `Renderer` class**
+this will enable us to exchange the rendering in the future. the aim is to use Pillow.
+- **✅ Step 4.2 - Make a function that selects frams for saving**
 - **Step 4.3 — Move parameter presets into model classes**
 The `setModelParams` function's preset dictionaries (`solitons`, `coral`, etc.) become class methods or a factory: `GrayScott.from_preset("coral")`. `setModelParams` can then be retired.
 
