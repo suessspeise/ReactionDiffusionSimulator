@@ -29,22 +29,16 @@ Same pattern. One at a time, each verified against its own reference output.
 - **✅ Step 4.1 — Wrap `makeImg` in a `Renderer` class**
 this will enable us to exchange the rendering in the future. the aim is to use Pillow.
 - **✅ Step 4.2 - Make a function that selects frams for saving**
-- **Step 4.3 — Move parameter presets into model classes**
+- **Step 4.3 — seperate functionality of arg_parse**
+  - move directory creation to Renderer
+  - separate argument gathering
+  - move computations to main (for now)
+
+
+- *postponed: Move parameter presets into model classes*
 The `setModelParams` function's preset dictionaries (`solitons`, `coral`, etc.) become class methods or a factory: `GrayScott.from_preset("coral")`. `setModelParams` can then be retired.
+- *long term: Pillow Renderer*
 
-
-#### Summary table
-
-| Phase | What changes | How to verify |
-|---|---|---|
-| 1.1 | Remove duplicate functions | Reference array comparison |
-| 1.2 | Eliminate globals | Reference array comparison |
-| 1.3 | Fix mutation bug | Code review |
-| 2.x | `SimulationGrid` | Unit test `laplacian()`, seed shapes |
-| 3.x | Model classes | Per-model reference array comparison |
-| 4.1–4.2 | `Renderer`, `Runner` | Full end-to-end run |
-| 4.3 | Preset factory methods | Interactive test, same params selected |
-| 5 | Pillow swap | Visual inspection + array values |
 
 
 ### [Watch an example simulation on YouTube.](https://youtu.be/jFM8qlKXyp0)

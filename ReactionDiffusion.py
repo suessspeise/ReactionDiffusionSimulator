@@ -22,25 +22,25 @@ Example usage 2:
 
 """
 
-#Other notes:
-
-#Du: Diffusivity of U
-#Dv: Diffusivity of V
-#F: "feed rate"
-#k: dimensionless rate constant for V
-#myCmap: colormap object compatible with matplotlib
-#edgeMax: Set a constant for heatmap scaling purposes (True | False)
-#dt: timestep
-#dx: spatial stepsize (same as dy)
-
 import os
 import argparse
+from abc import ABC, abstractmethod
 
 import numpy as np
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+DEFAULT_EARLY_STEPS = [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150]
+
+def make_frame_selector(n_steps, max_frames=250, early_steps=None):
+    early = set(early_steps or DEFAULT_EARLY_STEPS)
+    interval = max(1, n_steps // max_frames)
+    def should_save(step):
+        return step in early or step % interval == 0
+    return should_save
+
 
 class SimulationGrid:
     """
@@ -211,61 +211,6 @@ class Renderer:
         self._render(grid.v, label, colorbar)
 
 
-
-def makeImg(M,fname, params, colorbar=False, bg='black'):
-    """
-    Create and save a heatmap image for a 2D array.
-
-    Parameters
-    ----------
-    M : ndarray of shape (H, W)
-        Data matrix to render. May be modified in-place if `setEdge` is True.
-    fname : str
-        Basename for the saved file. Path is built from globals `savPath` and `runName`.
-    myCmap : matplotlib.colors.Colormap
-        Colormap to apply.
-    colorbar : bool, default False
-        If True, draw a colorbar.
-    bg : str, default 'black'
-        Figure and canvas background color.
-    setEdge : bool, default True
-        If True, temporarily sets M[-1, -1]=1 and M[1, 1]=0 to enforce a fixed
-        color scale across images.
-
-    Returns
-    -------
-    None
-
-    Notes
-    -----
-    - Saves to "{savPath}{runName}_{fname}.png" at DPI `myDPI` (globals).
-    - Only M[-1, -1] is restored (to 0); M[1, 1] remains 0, permanently altering `M`.
-    - Axes are hidden; image extent is [-1, 1] × [-1, 1].
-    """
-    plt.figure()
-    plt.rcParams['axes.facecolor'] = bg
-    plt.rcParams['savefig.facecolor'] = bg
-    plt.axis('off')
-    #Hackish way to ensure constant color scale across images
-    if params['fix_color_scale']:
-        saved_corner = M[-1,-1]
-        saved_inner  = M[1, 1]
-        M[-1,-1] = 1
-        M[1, 1]  = 0
-
-    plt.imshow(M, cmap=params["colormap"], extent=[-1,1,-1,1]);
-    if colorbar:
-        plt.colorbar()
-    #reset value
-    if params['fix_color_scale']:
-        M[-1,-1] = saved_corner
-        M[1, 1]  = saved_inner
-
-    plt.savefig(params["output_directory"] + params["simulation_name"] + "_" + fname + ".png", dpi=params["output_dpi"])
-    plt.close()
-
-from abc import ABC, abstractmethod
-
 class ReactionDiffusionModel(ABC):
     """
     Abstract base class for reaction-diffusion models.
@@ -420,46 +365,33 @@ class GiererMeinhardt(ReactionDiffusionModel):
 
 ##########################
 
+
+def makeImg(M,fname, params, colorbar=False, bg='black'):
+    plt.figure()
+    plt.rcParams['axes.facecolor'] = bg
+    plt.rcParams['savefig.facecolor'] = bg
+    plt.axis('off')
+    #Hackish way to ensure constant color scale across images
+    if params['fix_color_scale']:
+        saved_corner = M[-1,-1]
+        saved_inner  = M[1, 1]
+        M[-1,-1] = 1
+        M[1, 1]  = 0
+
+    plt.imshow(M, cmap=params["colormap"], extent=[-1,1,-1,1]);
+    if colorbar:
+        plt.colorbar()
+    #reset value
+    if params['fix_color_scale']:
+        M[-1,-1] = saved_corner
+        M[1, 1]  = saved_inner
+
+    plt.savefig(params["output_directory"] + params["simulation_name"] + "_" + fname + ".png", dpi=params["output_dpi"])
+    plt.close()
+
+
 def simulate_gray_scott(params, grid):
-    """
-    Integrate the Gray–Scott reaction–diffusion system (explicit Euler) with
-    human-readable parameter names.
 
-    Parameters
-    ----------
-    params : dict
-        Required keys
-            diffusion_u : float
-                Diffusion coefficient for the activator (u).
-            diffusion_v : float
-                Diffusion coefficient for the inhibitor (v).
-            feed_rate : float
-                Feed rate F.
-            kill_rate : float
-                Kill/decay rate k for v.
-            time_step : float
-                Time step Δt.
-            grid_spacing : float
-                Spatial step Δx (= Δy).
-        Optional keys
-            colormap : matplotlib.colors.Colormap, optional
-                Colormap used when saving frames.
-            fix_color_scale : bool, optional
-                If True, pass setEdge=True to makeImg for fixed color scaling.
-
-    initial_fields : tuple of ndarray
-        (U, V) full arrays (including boundary rows/cols).
-
-    Returns
-    -------
-    activator, inhibitor : ndarray
-        Interior views U[1:-1, 1:-1], V[1:-1, 1:-1] after n steps.
-
-    Notes
-    -----
-    - Uses globals: n, movieOutput, frameMod, makeImg.
-    - Boundaries are not updated (fixed at initial values).
-    """
     diffusion_u = params["diffusion_u"]
     diffusion_v = params["diffusion_v"]
     feed_rate = params["feed_rate"]
@@ -492,50 +424,8 @@ def simulate_gray_scott(params, grid):
                 if step % 1000 == 0:
                     print(str(step))
 
-    # return activator, inhibitor
-
 def simulate_gierer_meinhardt(params, grid):
-    """
-    Integrate the Gierer–Meinhardt activator–inhibitor system (explicit Euler)
-    with human-readable parameter names.
 
-    Parameters
-    ----------
-    params : dict
-        Required keys
-            diffusion_u : float
-                Diffusion coefficient for the activator (u).
-            diffusion_v : float
-                Diffusion coefficient for the inhibitor (v).
-            reaction_rate : float
-                Global kinetic scaling (rho).
-            saturation_coeff : float
-                Saturation coefficient for inhibitor term (kappa).
-            inhibitor_decay_rate : float
-                Linear decay of inhibitor (mu).
-            activator_decay_rate : float
-                Linear decay of activator (k_u).
-            time_step : float
-                Time step Δt.
-            grid_spacing : float
-                Spatial step Δx (= Δy).
-        Optional keys
-            colormap : matplotlib.colors.Colormap
-            fix_color_scale : bool
-
-    initial_fields : tuple of ndarray
-        (U, V) full arrays (including boundary rows/cols).
-
-    Returns
-    -------
-    activator, inhibitor : ndarray
-        Interior views after n steps.
-
-    Notes
-    -----
-    - Uses globals: n, movieOutput, frameMod, makeImg.
-    - Boundaries remain fixed (not updated).
-    """
     diffusion_u = params["diffusion_u"]
     diffusion_v = params["diffusion_v"]
     reaction_rate = params["reaction_rate"]          # rho
@@ -547,9 +437,6 @@ def simulate_gierer_meinhardt(params, grid):
     colormap = params.get("colormap")
     fix_color_scale = params.get("fix_color_scale", False)
 
-    # U, V = initial_fields
-    # activator = U[1:-1, 1:-1]
-    # inhibitor = V[1:-1, 1:-1]
     activator = grid.u
     inhibitor = grid.v
 
@@ -576,46 +463,7 @@ def simulate_gierer_meinhardt(params, grid):
                 if step % (1000 * params["frame_interval"]) == 0:
                     print(step)
 
-    return activator, inhibitor
-
 def simulate_fitzhugh_nagumo(params, grid):
-    """
-    Integrate the FitzHugh–Nagumo reaction–diffusion system (explicit Euler)
-    with human-readable parameter names.
-
-    Parameters
-    ----------
-    params : dict
-        Required keys
-            diffusion_recovery : float
-                Diffusion coefficient for the recovery variable (u).
-            diffusion_excitation : float
-                Diffusion coefficient for the excitation variable (v).
-            drive : float
-                Constant drive/bias term (k) in the v-equation.
-            recovery_time_scale : float
-                Time scale τ for the recovery variable.
-            time_step : float
-                Time step Δt.
-            grid_spacing : float
-                Spatial step Δx (= Δy).
-        Optional keys
-            colormap : matplotlib.colors.Colormap
-            fix_color_scale : bool
-
-    initial_fields : tuple of ndarray
-        (U, V) full arrays (including boundary rows/cols).
-
-    Returns
-    -------
-    recovery, excitation : ndarray
-        Interior views after n steps.
-
-    Notes
-    -----
-    - Uses globals: n, movieOutput, frameMod, makeImg.
-    - Boundaries remain fixed (not updated).
-    """
     diffusion_recovery = params["diffusion_recovery"]     # Du
     diffusion_excitation = params["diffusion_excitation"] # Dv
     drive = params["drive"]                               # k
@@ -625,9 +473,6 @@ def simulate_fitzhugh_nagumo(params, grid):
     colormap = params.get("colormap")
     fix_color_scale = params.get("fix_color_scale", False)
 
-    # U, V = initial_fields
-    # recovery = U[1:-1, 1:-1]    # u
-    # excitation = V[1:-1, 1:-1]  # v
     recovery = grid.u
     excitation = grid.v
 
@@ -646,9 +491,6 @@ def simulate_fitzhugh_nagumo(params, grid):
                 makeImg(excitation, f"v_{step}", params)
                 if step % (1000 * params["frame_interval"]) == 0:
                     print(step)
-
-    return recovery, excitation
-
 
 #################
 
@@ -865,14 +707,13 @@ if __name__ == "__main__":
     grid.seed(params["seed"])
 
     model = modelClass(params)
-
     renderer = Renderer(params)
+
+    should_save = make_frame_selector(params["n_steps"])
+    def callback(step, grid):
+        if params["save_frames"] and should_save(step):
+            renderer.save_frame(step, grid)
+
     renderer.save_image("initial_v", grid)
-    model.run(grid, params["n_steps"], callback=renderer.save_frame)
+    model.run(grid, params["n_steps"], callback=callback)
     renderer.save_image("final_v", grid)
-
-    # makeImg(grid.v, "initial_v", params)
-    # model.run(grid, params["n_steps"])
-    # makeImg(grid.v, "final_v", params)
-
-    
