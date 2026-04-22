@@ -285,9 +285,9 @@ class GrayScott(ReactionDiffusionModel):
         activator = grid.u
         inhibitor = grid.v
 
-        reaction = activator * inhibitor* inhibitor # u*v^2
-        activator_rate = diffusion_u * Lu - reaction + feed_rate * (1.0 - activator)
-        inhibitor_rate = diffusion_v * Lv + reaction - (feed_rate + kill_rate) * inhibitor
+        reaction = activator * inhibitor * inhibitor # u*v^2
+        activator_rate = self.diffusion_u * Lu - reaction + self.feed_rate * (1.0 - activator)
+        inhibitor_rate = self.diffusion_v * Lv + reaction - (self.feed_rate + self.kill_rate) * inhibitor
 
         grid.u[:] += time_step * activator_rate
         grid.v[:] += time_step * inhibitor_rate
@@ -322,12 +322,12 @@ class GiererMeinhardt(ReactionDiffusionModel):
 
         inh_sq = inhibitor * inhibitor
         inhibitor_rate = (
-            reaction_rate * (inh_sq / (activator * (1.0 + saturation_coeff * inh_sq)) - inhibitor_decay * inhibitor)
-            + diffusion_v * Lv
+            self.reaction_rate * (inh_sq / (activator * (1.0 + self.saturation_coeff * inh_sq)) - self.inhibitor_decay * inhibitor)
+            + self.diffusion_v * Lv
         )
         activator_rate = (
-            reaction_rate * (inh_sq - activator_decay * activator)
-            + diffusion_u * Lu
+            self.reaction_rate * (inh_sq - self.activator_decay * activator)
+            + self.diffusion_u * Lu
         )
 
         grid.u[:] += time_step * activator_rate
