@@ -12,19 +12,19 @@ The `M[1,1]` permanent alteration. Small fix, but do it now before the renderer 
 *Verify: same reference output (the bug likely has negligible effect on most runs, but fix it cleanly).*
 - **✅ Step 2.1 — Create the class, move data into it**
 `SimulationGrid` holds `U`, `V`, `size`, `dx`. Constructor takes `size` and `dx`, initialises the arrays. Nothing else yet.
-- **✅Step 2.2 — Move seeding logic in**
+- **✅ Step 2.2 — Move seeding logic in**
 The `single` / `dual` / `noise` initialisation block moves in as a `seed(method)` method.
-- **✅Step 2.3 — Move `laplacian_operator` in**
+- **✅ Step 2.3 — Move `laplacian_operator` in**
 Becomes `grid.laplacian()`, operates on `self.U` and `self.V`.
 *Verify: call `grid.laplacian()` and compare output to the old standalone function on the same arrays.*
-- **✅Step 3.1 — Abstract base class**
+- **✅ Step 3.1 — Abstract base class**
 A simple `ReactionDiffusionModel` base with an interface: `__init__(params)`, `step(grid)`, `run(grid, n_steps, callback=None)`. The callback is how the runner will hook in frame saving — the model calls `callback(step, grid)` if one is provided, and otherwise does nothing. This keeps the model rendering-agnostic.
-- **✅Step 3.2 — Implement `GrayScott` subclass**
+- **✅ Step 3.2 — Implement `GrayScott` subclass**
 Port `_simulate_gray_scott` into a class. `step(grid)` does one Euler step. `run()` is the loop. 
 *Verify: run `GrayScott` end-to-end against reference output.*
-- **✅Step 3.3 — Implement `GiererMeinhardt` and `FitzHughNagumo`**
+- **✅ Step 3.3 — Implement `GiererMeinhardt` and `FitzHughNagumo`**
 Same pattern. One at a time, each verified against its own reference output.
-- **Step 3.4 — figure out how to actually use the OOP models, without skipping more steps. 
+- **✅ Step 3.4 — figure out how to actually use the OOP models, without skipping more steps. 
 
 - **Step 4.1 — Wrap `makeImg` in a `Renderer` class**
 At this stage it still uses matplotlib internally — no Pillow yet. The class just encapsulates the current logic cleanly. Interface: `renderer.save_frame(array, label)`.

@@ -566,6 +566,10 @@ def simulate_fitzhugh_nagumo(params, grid):
     return recovery, excitation
 
 
+#################
+
+
+
 def setModelParams(model, verbose=True):
     """
     Select a model and assemble its default parameter dictionary.
@@ -694,7 +698,14 @@ def setModelParams(model, verbose=True):
         }
     for k,v in model_params.items():
         if not k in params.keys(): params[k] = v
-    return params, modelFunc
+
+    model_classes = {
+        "FN": FitzHughNagumo,
+        "GM": GiererMeinhardt,
+        "GS": GrayScott,
+    }
+    modelClass = model_classes[model]
+    return params, modelFunc, modelClass
 
 
 def arg_parse():
@@ -743,7 +754,7 @@ def arg_parse():
 
 
     #get params for model
-    params, modelFunc = setModelParams(model)
+    params, modelFunc, modelClass = setModelParams(model)
 
     # this serves no purpose yet, other than to show how 
     # parameters are going to be separated in the future
@@ -760,14 +771,26 @@ def arg_parse():
     params["n_steps"] = n
 
 
-    return params, modelFunc
+    return params, modelFunc, modelClass
 
 if __name__ == "__main__":
-    params, modelFunc = arg_parse()
+    # params, modelFunc = arg_parse()
     
+    # grid = SimulationGrid(params["grid_size"], params["grid_spacing"])
+    # grid.seed(params["seed"])
+
+    # makeImg(grid.v, "initial_v", params)
+    # modelFunc(params, grid)
+    # makeImg(grid.v, "final_v", params)
+
+
+    params, modelFunc, modelClass = arg_parse()
+
     grid = SimulationGrid(params["grid_size"], params["grid_spacing"])
     grid.seed(params["seed"])
 
+    model = modelClass(params)
+
     makeImg(grid.v, "initial_v", params)
-    modelFunc(params, grid)
+    model.run(grid, params["n_steps"])
     makeImg(grid.v, "final_v", params)
