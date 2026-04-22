@@ -127,31 +127,6 @@ class SimulationGrid:
 
         return Lu, Lv
 
-# def laplacian_operator(U,V,dx):
-#     """
-#     Compute 2D Laplacians of U and V on the interior using a five-point stencil.
-
-#     Parameters
-#     ----------
-#     U, V : ndarray of shape (H, W)
-#         Input fields.
-#     dx : float
-#         Grid spacing (assumed equal in x and y).
-
-#     Returns
-#     -------
-#     Lu, Lv : ndarray of shape (H-2, W-2)
-#         Laplacians evaluated at interior points.
-
-#     Notes
-#     -----
-#     Uses (N + S + E + W - 4C) / dx**2 and excludes boundaries.
-#     """
-#     Lu = (U[0:-2,1:-1] + U[1:-1,0:-2] + U[1:-1,2:] + U[2:,1:-1] - 4*U[1:-1,1:-1])/dx**2
-#     Lv = (V[0:-2,1:-1] + V[1:-1,0:-2] + V[1:-1,2:] + V[2:,1:-1] - 4*V[1:-1,1:-1])/dx**2
-#     return Lu,Lv
-
-
 
 def makeImg(M,fname, params, colorbar=False, bg='black'):
     """
@@ -204,6 +179,162 @@ def makeImg(M,fname, params, colorbar=False, bg='black'):
 
     plt.savefig(params["output_directory"] + params["simulation_name"] + "_" + fname + ".png", dpi=params["output_dpi"])
     plt.close()
+
+from abc import ABC, abstractmethod
+
+class ReactionDiffusionModel(ABC):
+    """
+    Abstract base class for reaction-diffusion models.
+
+    Subclasses implement the specific reaction kinetics in step(),
+    and inherit the run loop from this class. frame saving is handled 
+    via an optional callback supplied by the runner.
+
+    Parameters
+    ----------
+    params : dict
+        Model-specific physical parameters.
+    """
+
+    def __init__(self, params: dict):
+        self.params = params
+
+    @abstractmethod
+    def step(self, grid: SimulationGrid):
+        """
+        Advance the simulation by one time step.
+
+        Modifies grid.U and grid.V in place.
+
+        Parameters
+        ----------
+        grid : SimulationGrid
+        """
+        pass
+
+    def run(self, grid: SimulationGrid, n_steps: int, callback=None):
+        """
+        Run the simulation for n_steps iterations.
+
+        Parameters
+        ----------
+        grid : SimulationGrid
+        n_steps : int
+        callback : callable, optional
+            Called as callback(step, grid) at intervals determined
+            by the runner. The model does not decide when to call it.
+        """
+        for step in range(n_steps):
+            self.step(grid)
+            if callback is not None:
+                callback(step, grid)
+
+class FitzHughNagumo(ReactionDiffusionModel):
+    """
+    FitzHugh-Nagumo reaction-diffusion model.
+
+    Expected params keys:
+        diffusion_recovery : float
+        diffusion_excitation : float
+        drive : float
+        recovery_time_scale : float
+        time_step : float
+    """
+
+    def __init__(self, params: dict):
+        super().__init__(params)
+        self.diffusion_recovery   = params["diffusion_recovery"]
+        self.diffusion_excitation = params["diffusion_excitation"]
+        self.drive                = params["drive"]
+        self.recovery_time_scale  = params["recovery_time_scale"]
+        self.time_step            = params["time_step"]
+
+    def step(self, grid: SimulationGrid):
+        Lu, Lv = grid.laplacian()
+
+        excitation_rate = (self.diffusion_excitation * Lv
+                           + grid.v - grid.v**3 - grid.u + self.drive)
+        recovery_rate   = (self.diffusion_recovery * Lu
+                           + grid.v - grid.u) / self.recovery_time_scale
+
+        grid.u[:] += self.time_step * recovery_rate
+        grid.v[:] += self.time_step * excitation_rate
+
+class GrayScott(ReactionDiffusionModel):
+    """
+    Gray–Scott reaction-diffusion model.
+
+    Expected params keys:
+        diffusion_u : float
+        diffusion_v : float
+        feed_rate : float
+        kill_rate : float
+        time_step : float
+    """
+
+    def __init__(self, params: dict):
+        super().__init__(params)
+        self.diffusion_u = params["diffusion_u"]
+        self.diffusion_v = params["diffusion_v"]
+        self.feed_rate   = params["feed_rate"]
+        self.kill_rate   = params["kill_rate"]
+        self.time_step   = params["time_step"]
+
+    def step(self, grid: SimulationGrid):
+        Lu, Lv = grid.laplacian()
+        activator = grid.u
+        inhibitor = grid.v
+
+        reaction = activator * inhibitor* inhibitor # u*v^2
+        activator_rate = diffusion_u * Lu - reaction + feed_rate * (1.0 - activator)
+        inhibitor_rate = diffusion_v * Lv + reaction - (feed_rate + kill_rate) * inhibitor
+
+        grid.u[:] += time_step * activator_rate
+        grid.v[:] += time_step * inhibitor_rate
+
+
+class GiererMeinhardt(ReactionDiffusionModel):
+    """
+    Gierer–Meinhardt activator–inhibitor system reaction-diffusion model.
+
+    Expected params keys:
+        diffusion_u : float
+        diffusion_v : float
+        feed_rate : float
+        kill_rate : float
+        time_step : float
+    """
+
+    def __init__(self, params: dict):
+        super().__init__(params)
+        self.diffusion_u      = params["diffusion_u"]
+        self.diffusion_v      = params["diffusion_v"]
+        self.reaction_rate    = params["reaction_rate"]          # rho
+        self.saturation_coeff = params["saturation_coeff"]       # kappa
+        self.inhibitor_decay  = params["inhibitor_decay_rate"]   # mu
+        self.activator_decay  = params["activator_decay_rate"]   # k_u
+        self.time_step        = params["time_step"]
+
+    def step(self, grid: SimulationGrid):
+        Lu, Lv = grid.laplacian()
+        activator = grid.u
+        inhibitor = grid.v
+
+        inh_sq = inhibitor * inhibitor
+        inhibitor_rate = (
+            reaction_rate * (inh_sq / (activator * (1.0 + saturation_coeff * inh_sq)) - inhibitor_decay * inhibitor)
+            + diffusion_v * Lv
+        )
+        activator_rate = (
+            reaction_rate * (inh_sq - activator_decay * activator)
+            + diffusion_u * Lu
+        )
+
+        grid.u[:] += time_step * activator_rate
+        grid.v[:] += time_step * inhibitor_rate
+
+
+##########################
 
 def simulate_gray_scott(params, grid):
     """
