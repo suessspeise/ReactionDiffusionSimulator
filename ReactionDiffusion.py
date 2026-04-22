@@ -384,6 +384,7 @@ def setModelParams(model, verbose=True):
             "grid_spacing":         params["dx"],
             "colormap":             params.get("myCmap"),
             "fix_color_scale":      params.get("edgeMax", False),
+            "seed" : params["seed"],
         }
 
 
@@ -403,6 +404,7 @@ def setModelParams(model, verbose=True):
             "grid_spacing":       params["dx"],
             "colormap":           params.get("myCmap"),
             "fix_color_scale":    params.get("edgeMax", False),
+            "seed" : params["seed"],
         }
 
     elif model == "GS":
@@ -448,6 +450,7 @@ def setModelParams(model, verbose=True):
             "grid_spacing": params["dx"],
             "colormap": params.get("myCmap"),
             "fix_color_scale": params.get("edgeMax", False),
+            "seed" : params["seed"],
         }
 
     return params, modelFunc
@@ -536,6 +539,6 @@ if __name__ == "__main__":
     initial_matrices = (U,V)
 
     #RUN SIM
-    makeImg(v,"initial_v",params["myCmap"],setEdge=params["edgeMax"])
+    makeImg(v,"initial_v",params["colormap"],setEdge=params["fix_color_scale"])
     u,v = modelFunc(params,initial_matrices)
-    makeImg(v,"final_v",params["myCmap"],setEdge=params["edgeMax"])
+    makeImg(v,"final_v",params["colormap"],setEdge=params["fix_color_scale"])
