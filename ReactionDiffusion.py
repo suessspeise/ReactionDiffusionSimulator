@@ -40,13 +40,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import argparse
 
-try:
-    # python2
-    input_function = raw_input
-except NameError:
-    input_function = input
-
-def makeImg(M,fname, myCmap, colorbar=False, bg='black', setEdge=True):
+def makeImg(M,fname, params, colorbar=False, bg='black'):
     """
     Create and save a heatmap image for a 2D array.
 
@@ -81,18 +75,18 @@ def makeImg(M,fname, myCmap, colorbar=False, bg='black', setEdge=True):
     plt.rcParams['savefig.facecolor'] = bg
     plt.axis('off')
     #Hackish way to ensure constant color scale across images
-    if setEdge:
+    if params['fix_color_scale']:
         M[-1,-1] = 1
         M[1, 1] = 0
 
-    plt.imshow(M, cmap=myCmap, extent=[-1,1,-1,1]);
+    plt.imshow(M, cmap=params["colormap"], extent=[-1,1,-1,1]);
     if colorbar:
         plt.colorbar()
     #reset value
-    if setEdge:
+    if params['fix_color_scale']:
         M[-1,-1] = 0
 
-    plt.savefig(savPath + runName + "_" + fname + ".png",dpi=myDPI)
+    plt.savefig(params["output_directory"] + params["simulation_name"] + "_" + fname + ".png", dpi=params["output_dpi"])
     plt.close()
 
 def laplacian_operator(U,V,dx):
@@ -172,7 +166,7 @@ def simulate_gray_scott(params, initial_fields):
     activator = U[1:-1, 1:-1]
     inhibitor = V[1:-1, 1:-1]
 
-    for step in range(n):
+    for step in range(params["n_steps"]):
         Lu, Lv = laplacian_operator(U, V, grid_spacing)
 
         reaction = activator * inhibitor * inhibitor  # u*v^2
@@ -182,9 +176,9 @@ def simulate_gray_scott(params, initial_fields):
         activator += time_step * activator_rate
         inhibitor += time_step * inhibitor_rate
 
-        if movieOutput:
-            if step % frameMod == 0 or step in [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150]:
-                makeImg(inhibitor, "v_" + str(step), colormap, setEdge=fix_color_scale)
+        if params["save_frames"]:
+            if step % params["frame_interval"] == 0 or step in [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150]:
+                makeImg(inhibitor, "v_" + str(step), params)
                 if step % 1000 == 0:
                     print(str(step))
 
@@ -247,7 +241,7 @@ def simulate_gierer_meinhardt(params, initial_fields):
     activator = U[1:-1, 1:-1]
     inhibitor = V[1:-1, 1:-1]
 
-    for step in range(n):
+    for step in range(params["n_steps"]):
         lap_u, lap_v = laplacian_operator(U, V, grid_spacing)
 
         inh_sq = inhibitor * inhibitor
@@ -263,10 +257,10 @@ def simulate_gierer_meinhardt(params, initial_fields):
         activator += time_step * activator_rate
         inhibitor += time_step * inhibitor_rate
 
-        if movieOutput:
-            if step % frameMod == 0 or step in [1, 2, 3, 4, 5, 10, 40, 80, 150]:
-                makeImg(inhibitor, f"v_{step}", colormap, setEdge=fix_color_scale)
-                if step % (1000 * frameMod) == 0:
+        if params["save_frames"]:
+            if step % params["frame_interval"] == 0 or step in [1, 2, 3, 4, 5, 10, 40, 80, 150]:
+                makeImg(inhibitor, f"v_{step}", params)
+                if step % (1000 * params["frame_interval"]) == 0:
                     print(step)
 
     return activator, inhibitor
@@ -322,7 +316,7 @@ def simulate_fitzhugh_nagumo(params, initial_fields):
     recovery = U[1:-1, 1:-1]    # u
     excitation = V[1:-1, 1:-1]  # v
 
-    for step in range(n):
+    for step in range(params["n_steps"]):
         Lu, Lv = laplacian_operator(U, V, grid_spacing)
 
         excitation_rate = diffusion_excitation * Lv + excitation - excitation**3 - recovery + drive
@@ -331,10 +325,10 @@ def simulate_fitzhugh_nagumo(params, initial_fields):
         excitation += time_step * excitation_rate
         recovery   += time_step * recovery_rate
 
-        if movieOutput:
-            if step % frameMod == 0 or step in [1, 2, 3, 4, 5, 10, 40, 80, 150]:
-                makeImg(excitation, f"v_{step}", colormap, setEdge=fix_color_scale)
-                if step % (1000 * frameMod) == 0:
+        if params["save_frames"]:
+            if step % params["frame_interval"] == 0 or step in [1, 2, 3, 4, 5, 10, 40, 80, 150]:
+                makeImg(excitation, f"v_{step}", params)
+                if step % (1000 * params["frame_interval"]) == 0:
                     print(step)
 
     return recovery, excitation
@@ -372,8 +366,8 @@ def setModelParams(model, verbose=True):
         print("SETTING GRID SIZE TO 120 - STABILITY REASONS")
         print("WARNING: IF TIMESTEPS LESS THAN 80000, NO PATTERN MAY APPEAR")
         #FitzHugh-Nagumo requires fine-timestepping
-        size = 120
-        dx = 2./size
+        grid_size = 120
+        dx = 2./grid_size
         dt = 0.9 * dx**2/2
         params = {"Du":5e-3, "Dv":2.8e-4, "tau":0.1, "k":-0.005,"myCmap":plt.cm.PRGn,"edgeMax":False,"dt":dt,"dx":dx,"seed":"noise"}
         params = {
@@ -424,7 +418,7 @@ def setModelParams(model, verbose=True):
         while not pattern:
             print("--- Pattern choices ---")
             print("pick 1: " + ", ".join(pnames))
-            pattern = input_function('Select reaction-diffusion model: ').rstrip().lower()
+            pattern = input('Select reaction-diffusion model: ').rstrip().lower()
             if not pattern in pchoices:
                 print("please select pattern name from list")
                 pattern = ""
@@ -436,7 +430,7 @@ def setModelParams(model, verbose=True):
         seed = ""
         while not seed:
             print("Initial seeding choices: " + ", ".join(seeds))
-            seed = input_function("initial seeding choice: ").rstrip().lower()
+            seed = input("initial seeding choice: ").rstrip().lower()
             if not seed in seeds:
                 print("please select seed condition from list")
                 seed = ""
@@ -471,7 +465,7 @@ def setModelParams(model, verbose=True):
     return params, modelFunc
 
 
-if __name__ == "__main__":
+def arg_parse():
     #Parses the command line arguments
     parser = argparse.ArgumentParser(description="Gray-Scott simulation")
     parser.add_argument("-o", "--outname", help="simulation run output name",default="simulation_output")
@@ -487,7 +481,7 @@ if __name__ == "__main__":
     #Get input interactively if no command line args set
     while not model:
         print("--- Model choices --- \nFN [FitzHugh-Nagumo]\nGM [Gierer-Meinhardt]\nGS [Gray-Scott]")
-        model = input_function("(choose one): ").rstrip().upper()
+        model = input("(choose one): ").rstrip().upper()
         if model not in ["FN","GM","GS"]:
             print("please enter two-letter model name from list\n")
             model = ""
@@ -531,9 +525,12 @@ if __name__ == "__main__":
     }
     for k,v in run_config.items():
         if not k in params.keys(): params[k] = v
-    params["n_steps"] = n,
+    params["n_steps"] = n
 
-    grid_size = params["grid_size"]
+
+    return params, modelFunc
+
+def create_initial_matrices(grid_size):
     #set initial conditions
     U = np.zeros((grid_size, grid_size))
     V = np.zeros((grid_size, grid_size))
@@ -563,9 +560,15 @@ if __name__ == "__main__":
         #     u += (0.01 + 0.01*(np.random.random((size-2,size-2))*2-1))
         #     v += (0.01 + 0.01*(np.random.random((size-2,size-2))*2-1))
 
-    initial_matrices = (U,V)
+    return (U,V)
 
-    #RUN SIM
-    makeImg(v,"initial_v",params["colormap"],setEdge=params["fix_color_scale"])
-    u,v = modelFunc(params,initial_matrices)
-    makeImg(v,"final_v",params["colormap"],setEdge=params["fix_color_scale"])
+
+if __name__ == "__main__":
+    params, modelFunc = arg_parse()
+    
+    U,V = create_initial_matrices(params["grid_size"])
+    u,v = U[1:-1,1:-1], V[1:-1,1:-1]
+
+    makeImg(v, "initial_v", params)
+    u,v = modelFunc(params, (U,V))
+    makeImg(v, "final_v", params)
