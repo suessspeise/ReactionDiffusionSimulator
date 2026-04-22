@@ -34,12 +34,13 @@ Example usage 2:
 #dx: spatial stepsize (same as dy)
 
 import os
+import argparse
+
 import numpy as np
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import argparse
-
 
 class SimulationGrid:
     """
@@ -289,8 +290,8 @@ class GrayScott(ReactionDiffusionModel):
         activator_rate = self.diffusion_u * Lu - reaction + self.feed_rate * (1.0 - activator)
         inhibitor_rate = self.diffusion_v * Lv + reaction - (self.feed_rate + self.kill_rate) * inhibitor
 
-        grid.u[:] += time_step * activator_rate
-        grid.v[:] += time_step * inhibitor_rate
+        grid.u[:] += self.time_step * activator_rate
+        grid.v[:] += self.time_step * inhibitor_rate
 
 
 class GiererMeinhardt(ReactionDiffusionModel):
@@ -330,8 +331,8 @@ class GiererMeinhardt(ReactionDiffusionModel):
             + self.diffusion_u * Lu
         )
 
-        grid.u[:] += time_step * activator_rate
-        grid.v[:] += time_step * inhibitor_rate
+        grid.u[:] += self.time_step * activator_rate
+        grid.v[:] += self.time_step * inhibitor_rate
 
 
 ##########################
@@ -773,17 +774,8 @@ def arg_parse():
 
     return params, modelFunc, modelClass
 
+
 if __name__ == "__main__":
-    # params, modelFunc = arg_parse()
-    
-    # grid = SimulationGrid(params["grid_size"], params["grid_spacing"])
-    # grid.seed(params["seed"])
-
-    # makeImg(grid.v, "initial_v", params)
-    # modelFunc(params, grid)
-    # makeImg(grid.v, "final_v", params)
-
-
     params, modelFunc, modelClass = arg_parse()
 
     grid = SimulationGrid(params["grid_size"], params["grid_spacing"])
