@@ -4,10 +4,10 @@
 
 - **Step 1.0 — produce reference output for verification**
 - **✅ Step 1.1 — Eliminate the duplicate functions and legacy wrappers** 
-- **Step 1.2 — Kill the globals**
+- **✅ Step 1.2 — Kill the globals**
 Replace `n`, `movieOutput`, `frameMod`, `size`, `myDPI`, `savPath`, `runName` with explicit parameters passed into functions. The `__main__` block assembles them and passes them down.
 *Verify: same reference output.*
-- **Step 1.3 — Fix the `makeImg` mutation bug**
+- **✅ Step 1.3 — Fix the `makeImg` mutation bug**
 The `M[1,1]` permanent alteration. Small fix, but do it now before the renderer gets wrapped in a class.
 *Verify: same reference output (the bug likely has negligible effect on most runs, but fix it cleanly).*
 - **Step 2.1 — Create the class, move data into it**

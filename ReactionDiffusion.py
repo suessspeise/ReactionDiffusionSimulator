@@ -76,15 +76,18 @@ def makeImg(M,fname, params, colorbar=False, bg='black'):
     plt.axis('off')
     #Hackish way to ensure constant color scale across images
     if params['fix_color_scale']:
+        saved_corner = M[-1,-1]
+        saved_inner  = M[1, 1]
         M[-1,-1] = 1
-        M[1, 1] = 0
+        M[1, 1]  = 0
 
     plt.imshow(M, cmap=params["colormap"], extent=[-1,1,-1,1]);
     if colorbar:
         plt.colorbar()
     #reset value
     if params['fix_color_scale']:
-        M[-1,-1] = 0
+        M[-1,-1] = saved_corner
+        M[1, 1]  = saved_inner
 
     plt.savefig(params["output_directory"] + params["simulation_name"] + "_" + fname + ".png", dpi=params["output_dpi"])
     plt.close()
