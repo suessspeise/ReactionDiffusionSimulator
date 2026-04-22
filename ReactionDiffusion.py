@@ -364,7 +364,8 @@ def setModelParams(model, verbose=True):
     - For 'FN', computes dx=2/size and dt=0.9*dx**2/2 for stability.
     - For 'GS', prompts for a parameter preset and an initial seed via stdin.
     """
-    global size
+    grid_size = 200
+
     if model == "FN":
         print("FitzHugh-Nagumo model selected")
         modelFunc = simulate_fitzhugh_nagumo
@@ -411,12 +412,12 @@ def setModelParams(model, verbose=True):
         print("Gray-Scott model selected")
         modelFunc = simulate_gray_scott
         pnames = ["solitons","coral","maze","waves","flicker","worms"]
-        pvals = [{"Du":0.14, "Dv":0.06, "F":0.035, "k":0.065,"myCmap":plt.cm.copper,"edgeMax":False,"dt":1,"dx":1},
-                {"Du":0.16, "Dv":0.08, "F":0.06, "k":0.062,"myCmap":plt.cm.cubehelix,"edgeMax":False,"dt":1,"dx":1},
-                {"Du":0.19, "Dv":0.05, "F":0.06, "k":0.062,"myCmap":plt.cm.cubehelix,"edgeMax":False,"dt":1,"dx":1},
-                {"Du":0.12, "Dv":0.08, "F":0.02, "k":0.05,"myCmap":plt.cm.cubehelix,"edgeMax":True,"dt":1,"dx":1},
-                {"Du":0.16, "Dv":0.08, "F":0.02, "k":0.055,"myCmap":plt.cm.cubehelix,"edgeMax":True,"dt":1,"dx":1},
-                {"Du":0.16, "Dv":0.08, "F":0.054, "k":0.064,"myCmap":plt.cm.cubehelix,"edgeMax":False,"dt":1,"dx":1}]
+        pvals = [{"Du":0.14, "Dv":0.06, "F":0.035, "k":0.065, "myCmap":plt.cm.copper,    "edgeMax":False, "dt":1, "dx":1},
+                 {"Du":0.16, "Dv":0.08, "F":0.060, "k":0.062, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1},
+                 {"Du":0.19, "Dv":0.05, "F":0.060, "k":0.062, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1},
+                 {"Du":0.12, "Dv":0.08, "F":0.020, "k":0.050, "myCmap":plt.cm.cubehelix, "edgeMax":True,  "dt":1, "dx":1},
+                 {"Du":0.16, "Dv":0.08, "F":0.020, "k":0.055, "myCmap":plt.cm.cubehelix, "edgeMax":True,  "dt":1, "dx":1},
+                 {"Du":0.16, "Dv":0.08, "F":0.054, "k":0.064, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1}]
 
         pchoices = dict(zip(pnames,pvals))
         pattern = ""
@@ -446,13 +447,27 @@ def setModelParams(model, verbose=True):
             "diffusion_v": params["Dv"],
             "feed_rate": params["F"],
             "kill_rate": params["k"],
+            
             "time_step": params["dt"],
             "grid_spacing": params["dx"],
+            "seed" : params["seed"],
+
             "colormap": params.get("myCmap"),
             "fix_color_scale": params.get("edgeMax", False),
-            "seed" : params["seed"],
+            
         }
 
+    # this serves no purpose yet, other than to show how 
+    # parameters are going to be separated in the future
+    model_params = { 
+        # "n_steps" : n,
+        "grid_size" : grid_size,
+        "time_step": params["time_step"],
+        "grid_spacing": params["grid_spacing"],
+        "seed" : params["seed"],
+        }
+    for k,v in model_params.items():
+        if not k in params.keys(): params[k] = v
     return params, modelFunc
 
 
@@ -466,10 +481,7 @@ if __name__ == "__main__":
     parser.add_argument("-m","--model", choices=['FN','GM','GS'], help="Model simulation choice FN [FitzHugh-Nagumo]\
         \nGM [Gierer-Meinhardt]\nGS [Gray-Scott].")
     args = parser.parse_args()
-
-    #Set simulation grid size
-    size = 200
-
+    
     model = args.model
 
     #Get input interactively if no command line args set
@@ -479,10 +491,6 @@ if __name__ == "__main__":
         if model not in ["FN","GM","GS"]:
             print("please enter two-letter model name from list\n")
             model = ""
-
-
-    #get params for model
-    params,modelFunc = setModelParams(model)
 
     #create output dir
     runName = args.outname
@@ -507,23 +515,42 @@ if __name__ == "__main__":
         print("Movie mode set to OFF")
 
 
+
+    #get params for model
+    params, modelFunc = setModelParams(model)
+
+    # this serves no purpose yet, other than to show how 
+    # parameters are going to be separated in the future
+    run_config = {
+        "save_frames" : movieOutput,
+        "frame_interval" : frameMod,
+        "output_dpi" : myDPI,
+        "output_directory" : savPath,
+        "simulation_name" : runName,
+        "max_frames" : totFrames, #(implicit in frameMod currently)
+    }
+    for k,v in run_config.items():
+        if not k in params.keys(): params[k] = v
+    params["n_steps"] = n,
+
+    grid_size = params["grid_size"]
     #set initial conditions
-    U = np.zeros((size, size))
-    V = np.zeros((size, size))
+    U = np.zeros((grid_size, grid_size))
+    V = np.zeros((grid_size, grid_size))
     u,v = U[1:-1,1:-1], V[1:-1,1:-1]
     u+=1.0
 
     #sets initialization of single or double squares, or completely random
     if params["seed"] == "single":
         r = 20
-        U[size//2-r:size//2+r,size//2-r:size//2+r] = 0.50
-        V[size//2-r:size//2+r,size//2-r:size//2+r] = 0.25
+        U[grid_size//2-r:grid_size//2+r,grid_size//2-r:grid_size//2+r] = 0.50
+        V[grid_size//2-r:grid_size//2+r,grid_size//2-r:grid_size//2+r] = 0.25
     elif params["seed"] == "dual":
         r = 15
-        U[size//4-r:size//4+r,size//4-r:size//4+r] = 0.50
-        V[size//4-r:size//4+r,size//4-r:size//4+r] = 0.25
-        U[3*size//4-r:3*size//4+r,3*size//4-r:3*size//4+r] = 0.50
-        V[3*size//4-r:3*size//4+r,3*size//4-r:3*size//4+r] = 0.25
+        U[grid_size//4-r:grid_size//4+r,grid_size//4-r:grid_size//4+r] = 0.50
+        V[grid_size//4-r:grid_size//4+r,grid_size//4-r:grid_size//4+r] = 0.25
+        U[3*grid_size//4-r:3*grid_size//4+r,3*grid_size//4-r:3*grid_size//4+r] = 0.50
+        V[3*grid_size//4-r:3*grid_size//4+r,3*grid_size//4-r:3*grid_size//4+r] = 0.25
 
     else: #seed with random noise
         # if not model == 'GM':
