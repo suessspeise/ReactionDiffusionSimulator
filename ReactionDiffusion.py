@@ -27,6 +27,7 @@ import argparse
 from abc import ABC, abstractmethod
 import numpy as np
 import matplotlib.pyplot as plt
+from PIL import Image
 
 # these are default time steps that can be written out regardle
 DEFAULT_EARLY_STEPS = [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150]
@@ -175,6 +176,17 @@ class Renderer:
         self.bg               = params.get("bg", "black")
         self.output_directory_created = False
 
+    def __iter__(self):
+        yield 'simulation_name', self.simulation_name
+        yield 'output_directory', self.output_directory
+        yield 'fix_color_scale', self.fix_color_scale
+        yield 'output_dpi', self.output_dpi
+        yield 'bg', self.bg
+        yield 'output_directory_created', self.output_directory_created
+
+    def params(self):
+        return dict(self)
+
     def _build_path(self, label: str) -> str:
         return os.path.join(self.output_directory, f"{self.simulation_name}_{label}.png")
 
@@ -236,6 +248,106 @@ class Renderer:
         grid : SimulationGrid
         """
         self._render(grid.v, label, colorbar)
+
+class GrayscaleRenderer(Renderer):
+    """
+    Grayscale Pillow-based renderer for simulation field snapshots.
+
+    Produces grayscale PNG images without matplotlib figure overhead,
+    making frame saving significantly faster for large movie runs.
+    Unlike the base Renderer, this class can also return PIL.Image
+    objects directly, which display inline in Jupyter notebooks.
+
+    Inherits output directory management, path building, and the
+    save_frame / save_image interface from Renderer.
+
+    Parameters
+    ----------
+    params : dict
+        Expected keys:
+            simulation_name : str
+        Optional keys:
+            fix_color_scale    : bool  (default False)
+            output_dpi         : int   (default 300)
+            output_size_inches : float (default 5.0)
+                # MINOR CHOICE: square output assumed.
+                # Could be a (width, height) tuple later.
+    """
+
+    DEFAULT_SIZE_INCHES = 5.0
+
+    def __init__(self, params: dict):
+        # Inject neutral defaults so the base class is satisfied
+        # without requiring the caller to supply colormap or bg.
+        render_params = dict(params)
+        render_params.setdefault("colormap", None)
+        render_params.setdefault("bg", "black")
+        super().__init__(render_params)
+
+        self.size_inches = params.get("output_size_inches", self.DEFAULT_SIZE_INCHES)
+
+    def _to_image(self, M: np.ndarray) -> Image.Image:
+        """
+        Convert a 2D float array to a grayscale PIL Image.
+
+        Normalisation behaviour mirrors the base Renderer:
+        - fix_color_scale=True  : clamp to [0, 1]
+        - fix_color_scale=False : normalise to per-frame min/max
+
+        Parameters
+        ----------
+        M : ndarray of shape (H, W)
+
+        Returns
+        -------
+        PIL.Image in mode 'L' (8-bit grayscale)
+        """
+        if self.fix_color_scale:
+            normalised = np.clip(M, 0.0, 1.0)
+        else:
+            lo, hi = M.min(), M.max()
+            if hi > lo:
+                normalised = (M - lo) / (hi - lo)
+            else:
+                normalised = np.zeros_like(M)
+
+        grey = (normalised * 255).astype(np.uint8)
+
+        pixel_size = int(self.size_inches * self.output_dpi)
+        img = Image.fromarray(grey, mode="L")
+        # MINOR CHOICE: LANCZOS resampling for downscaling quality.
+        # Could be NEAREST for speed, or made configurable.
+        img = img.resize((pixel_size, pixel_size), Image.LANCZOS)
+        return img
+
+    def _render(self, M: np.ndarray, label: str):
+        """Override base _render — produce and save a grayscale image."""
+        if not self.output_directory_created:
+            self._create_output_directory()
+        self._to_image(M).save(self._build_path(label))
+
+    def to_image(self, grid: SimulationGrid) -> Image.Image:
+        """
+        Return the current inhibitor field as a PIL Image without saving.
+
+        Intended for interactive use in Jupyter notebooks, where the
+        returned Image renders inline. Can also be used to save to a
+        custom path or pass to further image processing.
+
+        Parameters
+        ----------
+        grid : SimulationGrid
+
+        Returns
+        -------
+        PIL.Image in mode 'L' (8-bit grayscale)
+
+        Example
+        -------
+        img = renderer.to_image(grid)
+        img  # displays inline in Jupyter
+        """
+        return self._to_image(grid.v)
 
 class ReactionDiffusionModel(ABC):
     """
