@@ -365,139 +365,6 @@ class GiererMeinhardt(ReactionDiffusionModel):
         grid.v[:] += self.time_step * inhibitor_rate
 
 
-##########################
-
-
-def makeImg(M,fname, params, colorbar=False, bg='black'):
-    plt.figure()
-    plt.rcParams['axes.facecolor'] = bg
-    plt.rcParams['savefig.facecolor'] = bg
-    plt.axis('off')
-    #Hackish way to ensure constant color scale across images
-    if params['fix_color_scale']:
-        saved_corner = M[-1,-1]
-        saved_inner  = M[1, 1]
-        M[-1,-1] = 1
-        M[1, 1]  = 0
-
-    plt.imshow(M, cmap=params["colormap"], extent=[-1,1,-1,1]);
-    if colorbar:
-        plt.colorbar()
-    #reset value
-    if params['fix_color_scale']:
-        M[-1,-1] = saved_corner
-        M[1, 1]  = saved_inner
-
-    plt.savefig(params["output_directory"] + params["simulation_name"] + "_" + fname + ".png", dpi=params["output_dpi"])
-    plt.close()
-
-
-def simulate_gray_scott(params, grid):
-
-    diffusion_u = params["diffusion_u"]
-    diffusion_v = params["diffusion_v"]
-    feed_rate = params["feed_rate"]
-    kill_rate = params["kill_rate"]
-    time_step = params["time_step"]
-    grid_spacing = params["grid_spacing"]
-    colormap = params.get("colormap")
-    fix_color_scale = params.get("fix_color_scale", False)
-
-    # U, V = initial_fields
-    # activator = U[1:-1, 1:-1]
-    # inhibitor = V[1:-1, 1:-1]
-    activator = grid.u
-    inhibitor = grid.v
-
-    for step in range(params["n_steps"]):
-        # Lu, Lv = laplacian_operator(U, V, grid_spacing)
-        Lu, Lv = grid.laplacian()
-
-        reaction = activator * inhibitor * inhibitor  # u*v^2
-        activator_rate = diffusion_u * Lu - reaction + feed_rate * (1.0 - activator)
-        inhibitor_rate = diffusion_v * Lv + reaction - (feed_rate + kill_rate) * inhibitor
-
-        activator += time_step * activator_rate
-        inhibitor += time_step * inhibitor_rate
-
-        if params["save_frames"]:
-            if step % params["frame_interval"] == 0 or step in [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150]:
-                makeImg(inhibitor, "v_" + str(step), params)
-                if step % 1000 == 0:
-                    print(str(step))
-
-def simulate_gierer_meinhardt(params, grid):
-
-    diffusion_u = params["diffusion_u"]
-    diffusion_v = params["diffusion_v"]
-    reaction_rate = params["reaction_rate"]          # rho
-    saturation_coeff = params["saturation_coeff"]    # kappa
-    inhibitor_decay = params["inhibitor_decay_rate"] # mu
-    activator_decay = params["activator_decay_rate"] # k_u
-    time_step = params["time_step"]
-    grid_spacing = params["grid_spacing"]
-    colormap = params.get("colormap")
-    fix_color_scale = params.get("fix_color_scale", False)
-
-    activator = grid.u
-    inhibitor = grid.v
-
-    for step in range(params["n_steps"]):
-        # lap_u, lap_v = laplacian_operator(U, V, grid_spacing)
-        Lu, Lv = grid.laplacian()
-
-        inh_sq = inhibitor * inhibitor
-        inhibitor_rate = (
-            reaction_rate * (inh_sq / (activator * (1.0 + saturation_coeff * inh_sq)) - inhibitor_decay * inhibitor)
-            + diffusion_v * Lv
-        )
-        activator_rate = (
-            reaction_rate * (inh_sq - activator_decay * activator)
-            + diffusion_u * Lu
-        )
-
-        activator += time_step * activator_rate
-        inhibitor += time_step * inhibitor_rate
-
-        if params["save_frames"]:
-            if step % params["frame_interval"] == 0 or step in [1, 2, 3, 4, 5, 10, 40, 80, 150]:
-                makeImg(inhibitor, f"v_{step}", params)
-                if step % (1000 * params["frame_interval"]) == 0:
-                    print(step)
-
-def simulate_fitzhugh_nagumo(params, grid):
-    diffusion_recovery = params["diffusion_recovery"]     # Du
-    diffusion_excitation = params["diffusion_excitation"] # Dv
-    drive = params["drive"]                               # k
-    recovery_time_scale = params["recovery_time_scale"]   # tau
-    time_step = params["time_step"]                       # dt
-    grid_spacing = params["grid_spacing"]                 # dx
-    colormap = params.get("colormap")
-    fix_color_scale = params.get("fix_color_scale", False)
-
-    recovery = grid.u
-    excitation = grid.v
-
-    for step in range(params["n_steps"]):
-        # Lu, Lv = laplacian_operator(U, V, grid_spacing)
-        Lu, Lv = grid.laplacian() 
-
-        excitation_rate = diffusion_excitation * Lv + excitation - excitation**3 - recovery + drive
-        recovery_rate = (diffusion_recovery * Lu + excitation - recovery) / recovery_time_scale
-
-        excitation += time_step * excitation_rate
-        recovery   += time_step * recovery_rate
-
-        if params["save_frames"]:
-            if step % params["frame_interval"] == 0 or step in [1, 2, 3, 4, 5, 10, 40, 80, 150]:
-                makeImg(excitation, f"v_{step}", params)
-                if step % (1000 * params["frame_interval"]) == 0:
-                    print(step)
-
-#################
-
-
-
 def setModelParams(model, verbose=True):
     """
     Select a model and assemble its default parameter dictionary.
@@ -526,7 +393,7 @@ def setModelParams(model, verbose=True):
 
     if model == "FN":
         print("FitzHugh-Nagumo model selected")
-        modelFunc = simulate_fitzhugh_nagumo
+        # modelFunc = simulate_fitzhugh_nagumo
         print("SETTING GRID SIZE TO 120 - STABILITY REASONS")
         print("WARNING: IF TIMESTEPS LESS THAN 80000, NO PATTERN MAY APPEAR")
         #FitzHugh-Nagumo requires fine-timestepping
@@ -549,7 +416,7 @@ def setModelParams(model, verbose=True):
 
     elif model == "GM":
         print("Gierer-Meinhardt model selected")
-        modelFunc = simulate_gierer_meinhardt
+        # modelFunc = simulate_gierer_meinhardt
         params = {"Du":2, "Dv":0.1, "rho":0.5, "kappa":0.238, "mu":1, "ku":0.9, "kv":1.0, "sv":0.3,
                   "myCmap":plt.cm.copper,"edgeMax":False,"dt":0.1,"dx":1,"seed":"noise"}
         params = {
@@ -568,7 +435,7 @@ def setModelParams(model, verbose=True):
 
     elif model == "GS":
         print("Gray-Scott model selected")
-        modelFunc = simulate_gray_scott
+        # modelFunc = simulate_gray_scott
         pnames = ["solitons","coral","maze","waves","flicker","worms"]
         pvals = [{"Du":0.14, "Dv":0.06, "F":0.035, "k":0.065, "myCmap":plt.cm.copper,    "edgeMax":False, "dt":1, "dx":1},
                  {"Du":0.16, "Dv":0.08, "F":0.060, "k":0.062, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1},
@@ -633,7 +500,7 @@ def setModelParams(model, verbose=True):
         "GS": GrayScott,
     }
     modelClass = model_classes[model]
-    return params, modelFunc, modelClass
+    return params, modelClass
 
 
 def arg_parse():
@@ -687,7 +554,7 @@ if __name__ == "__main__":
         "n_steps" : n    
     }
 
-    params, modelFunc, modelClass = setModelParams(model)
+    params, modelClass = setModelParams(model)
     for k,v in run_config.items():
         if not k in params.keys(): params[k] = v
 
