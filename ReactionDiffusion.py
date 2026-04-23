@@ -32,9 +32,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-
+# these are default time steps that can be written out regar
 DEFAULT_EARLY_STEPS = [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150]
-MOVIEMODE_DPI = 200
 
 def make_frame_selector(n_steps, max_frames=250, early_steps=None):
     early = set(early_steps or DEFAULT_EARLY_STEPS)
@@ -130,7 +129,6 @@ class SimulationGrid:
 
         return Lu, Lv
 
-
 class Renderer:
     """
     Handles rendering and saving of simulation field snapshots.
@@ -153,16 +151,20 @@ class Renderer:
     def __init__(self, params: dict):
         self.simulation_name  = params["simulation_name"]
         self.output_directory = self.simulation_name + '_images'
-        self.colormap         = params["colormap"]
-        self.fix_color_scale  = params["fix_color_scale"]
-        self.output_dpi       = params["output_dpi"]
+        self.colormap         = params.get("colormap", plt.cm.viridis)
+        self.fix_color_scale  = params.get("fix_color_scale", False)
+        self.output_dpi       = params.get("output_dpi", 300)
         self.bg               = params.get("bg", "black")
-
-        if not os.path.exists(self.output_directory):
-            os.makedirs(self.output_directory)
+        self.output_directory_created = False
 
     def _build_path(self, label: str) -> str:
         return os.path.join(self.output_directory, f"{self.simulation_name}_{label}.png")
+
+    def _create_output_directory(self):
+        self.output_directory = self.simulation_name + '_images'
+        if not os.path.exists(self.output_directory):
+            os.makedirs(self.output_directory)
+        self.output_directory_created = True
 
     def _render(self, M: np.ndarray, label: str, colorbar: bool = False):
         """
@@ -171,6 +173,8 @@ class Renderer:
         Uses explicit vmin/vmax instead of sentinel value mutation
         to enforce a fixed color scale.
         """
+        if not self.output_directory_created: self._create_output_directory()
+
         vmin, vmax = (0.0, 1.0) if self.fix_color_scale else (None, None)
 
         plt.figure()
@@ -263,7 +267,6 @@ class ReactionDiffusionModel(ABC):
             if callback is not None:
                 callback(step, grid)
 
-
 class FitzHughNagumo(ReactionDiffusionModel):
     """
     FitzHugh-Nagumo reaction-diffusion model.
@@ -294,7 +297,6 @@ class FitzHughNagumo(ReactionDiffusionModel):
 
         grid.u[:] += self.time_step * recovery_rate
         grid.v[:] += self.time_step * excitation_rate
-
 
 class GrayScott(ReactionDiffusionModel):
     """
@@ -327,7 +329,6 @@ class GrayScott(ReactionDiffusionModel):
 
         grid.u[:] += self.time_step * activator_rate
         grid.v[:] += self.time_step * inhibitor_rate
-
 
 class GiererMeinhardt(ReactionDiffusionModel):
     """
@@ -374,8 +375,7 @@ class ExperimentLibrary:
     A curated collection of ready-to-run reaction-diffusion experiments.
 
     Each experiment bundles a model, grid, and renderer with
-    sensible defaults. Advanced users can modify any component
-    after fetching.
+    sensible defaults.
 
     Usage
     -----
@@ -587,105 +587,103 @@ class ExperimentLibrary:
 
         return model, grid, renderer
 
+# def setModelParams(args, verbose=True):
+#     model = args.model
+#     grid_size = 200
 
-def setModelParams(args, verbose=True):
-    model = args.model
-    grid_size = 200
-
-    if model == "FN":
-        if verbose: print("FitzHugh-Nagumo model selected")
-        # modelFunc = simulate_fitzhugh_nagumo
-        if verbose: print("SETTING GRID SIZE TO 120 - STABILITY REASONS")
-        if verbose: print("WARNING: IF TIMESTEPS LESS THAN 80000, NO PATTERN MAY APPEAR")
-        #FitzHugh-Nagumo requires fine-timestepping
-        grid_size = 120
-        dx = 2./grid_size
-        dt = 0.9 * dx**2/2
-        params = {"Du":5e-3, "Dv":2.8e-4, "tau":0.1, "k":-0.005,"myCmap":plt.cm.PRGn,"edgeMax":False,"dt":dt,"dx":dx,"seed":"noise"}
-        params = {
-            "diffusion_recovery":   params["Du"],
-            "diffusion_excitation": params["Dv"],
-            "drive":                params["k"],
-            "recovery_time_scale":  params["tau"],
-            "time_step":            params["dt"],
-            "grid_spacing":         params["dx"],
-            "colormap":             params.get("myCmap"),
-            "fix_color_scale":      params.get("edgeMax", False),
-            "seed" : params["seed"],
-        }
+#     if model == "FN":
+#         if verbose: print("FitzHugh-Nagumo model selected")
+#         # modelFunc = simulate_fitzhugh_nagumo
+#         if verbose: print("SETTING GRID SIZE TO 120 - STABILITY REASONS")
+#         if verbose: print("WARNING: IF TIMESTEPS LESS THAN 80000, NO PATTERN MAY APPEAR")
+#         #FitzHugh-Nagumo requires fine-timestepping
+#         grid_size = 120
+#         dx = 2./grid_size
+#         dt = 0.9 * dx**2/2
+#         params = {"Du":5e-3, "Dv":2.8e-4, "tau":0.1, "k":-0.005,"myCmap":plt.cm.PRGn,"edgeMax":False,"dt":dt,"dx":dx,"seed":"noise"}
+#         params = {
+#             "diffusion_recovery":   params["Du"],
+#             "diffusion_excitation": params["Dv"],
+#             "drive":                params["k"],
+#             "recovery_time_scale":  params["tau"],
+#             "time_step":            params["dt"],
+#             "grid_spacing":         params["dx"],
+#             "colormap":             params.get("myCmap"),
+#             "fix_color_scale":      params.get("edgeMax", False),
+#             "seed" : params["seed"],
+#         }
 
 
-    elif model == "GM":
-        if verbose: print("Gierer-Meinhardt model selected")
-        # modelFunc = simulate_gierer_meinhardt
-        params = {"Du":2, "Dv":0.1, "rho":0.5, "kappa":0.238, "mu":1, "ku":0.9, "kv":1.0, "sv":0.3,
-                  "myCmap":plt.cm.copper,"edgeMax":False,"dt":0.1,"dx":1,"seed":"noise"}
-        params = {
-            "diffusion_u":        params["Du"],
-            "diffusion_v":        params["Dv"],
-            "reaction_rate":      params["rho"],
-            "saturation_coeff":   params["kappa"],
-            "inhibitor_decay_rate": params["mu"],
-            "activator_decay_rate": params["ku"],
-            "time_step":          params["dt"],
-            "grid_spacing":       params["dx"],
-            "colormap":           params.get("myCmap"),
-            "fix_color_scale":    params.get("edgeMax", False),
-            "seed" : params["seed"],
-        }
+#     elif model == "GM":
+#         if verbose: print("Gierer-Meinhardt model selected")
+#         # modelFunc = simulate_gierer_meinhardt
+#         params = {"Du":2, "Dv":0.1, "rho":0.5, "kappa":0.238, "mu":1, "ku":0.9, "kv":1.0, "sv":0.3,
+#                   "myCmap":plt.cm.copper,"edgeMax":False,"dt":0.1,"dx":1,"seed":"noise"}
+#         params = {
+#             "diffusion_u":        params["Du"],
+#             "diffusion_v":        params["Dv"],
+#             "reaction_rate":      params["rho"],
+#             "saturation_coeff":   params["kappa"],
+#             "inhibitor_decay_rate": params["mu"],
+#             "activator_decay_rate": params["ku"],
+#             "time_step":          params["dt"],
+#             "grid_spacing":       params["dx"],
+#             "colormap":           params.get("myCmap"),
+#             "fix_color_scale":    params.get("edgeMax", False),
+#             "seed" : params["seed"],
+#         }
 
-    elif model == "GS":
-        if verbose: print("Gray-Scott model selected")
-        # modelFunc = simulate_gray_scott
-        pnames = ["solitons","coral","maze","waves","flicker","worms"]
-        pvals = [{"Du":0.14, "Dv":0.06, "F":0.035, "k":0.065, "myCmap":plt.cm.copper,    "edgeMax":False, "dt":1, "dx":1},
-                 {"Du":0.16, "Dv":0.08, "F":0.060, "k":0.062, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1},
-                 {"Du":0.19, "Dv":0.05, "F":0.060, "k":0.062, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1},
-                 {"Du":0.12, "Dv":0.08, "F":0.020, "k":0.050, "myCmap":plt.cm.cubehelix, "edgeMax":True,  "dt":1, "dx":1},
-                 {"Du":0.16, "Dv":0.08, "F":0.020, "k":0.055, "myCmap":plt.cm.cubehelix, "edgeMax":True,  "dt":1, "dx":1},
-                 {"Du":0.16, "Dv":0.08, "F":0.054, "k":0.064, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1}]
+#     elif model == "GS":
+#         if verbose: print("Gray-Scott model selected")
+#         # modelFunc = simulate_gray_scott
+#         pnames = ["solitons","coral","maze","waves","flicker","worms"]
+#         pvals = [{"Du":0.14, "Dv":0.06, "F":0.035, "k":0.065, "myCmap":plt.cm.copper,    "edgeMax":False, "dt":1, "dx":1},
+#                  {"Du":0.16, "Dv":0.08, "F":0.060, "k":0.062, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1},
+#                  {"Du":0.19, "Dv":0.05, "F":0.060, "k":0.062, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1},
+#                  {"Du":0.12, "Dv":0.08, "F":0.020, "k":0.050, "myCmap":plt.cm.cubehelix, "edgeMax":True,  "dt":1, "dx":1},
+#                  {"Du":0.16, "Dv":0.08, "F":0.020, "k":0.055, "myCmap":plt.cm.cubehelix, "edgeMax":True,  "dt":1, "dx":1},
+#                  {"Du":0.16, "Dv":0.08, "F":0.054, "k":0.064, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1}]
 
-        pchoices = dict(zip(pnames,pvals))
-        params = pchoices[args.pattern]
-        params["seed"] = args.seed
-
+#         pchoices = dict(zip(pnames,pvals))
+#         params = pchoices[args.pattern]
+#         params["seed"] = args.seed
 
 
 
-        params = {
-            "diffusion_u": params["Du"],
-            "diffusion_v": params["Dv"],
-            "feed_rate": params["F"],
-            "kill_rate": params["k"],
+
+#         params = {
+#             "diffusion_u": params["Du"],
+#             "diffusion_v": params["Dv"],
+#             "feed_rate": params["F"],
+#             "kill_rate": params["k"],
             
-            "time_step": params["dt"],
-            "grid_spacing": params["dx"],
-            "seed" : params["seed"],
+#             "time_step": params["dt"],
+#             "grid_spacing": params["dx"],
+#             "seed" : params["seed"],
 
-            "colormap": params.get("myCmap"),
-            "fix_color_scale": params.get("edgeMax", False),
+#             "colormap": params.get("myCmap"),
+#             "fix_color_scale": params.get("edgeMax", False),
             
-        }
+#         }
 
-    # this serves no purpose yet, other than to show how 
-    # parameters are going to be separated in the future
+#     # this serves no purpose yet, other than to show how 
+#     # parameters are going to be separated in the future
 
-    model_params = { 
-        "grid_size" : grid_size,
-        "time_step": params["time_step"],
-        "grid_spacing": params["grid_spacing"],
-        "seed" : params["seed"],
-        }
-    for k,v in model_params.items():
-        if not k in params.keys(): params[k] = v
+#     model_params = { 
+#         "grid_size" : grid_size,
+#         "time_step": params["time_step"],
+#         "grid_spacing": params["grid_spacing"],
+#         "seed" : params["seed"],
+#         }
+#     for k,v in model_params.items():
+#         if not k in params.keys(): params[k] = v
 
-    model_classes = {
-        "FN": FitzHughNagumo,
-        "GM": GiererMeinhardt,
-        "GS": GrayScott,
-    }
-    return params, model_classes[model]
-
+#     model_classes = {
+#         "FN": FitzHughNagumo,
+#         "GM": GiererMeinhardt,
+#         "GS": GrayScott,
+#     }
+#     return params, model_classes[model]
 
 def arg_parse():
     #Parses the command line arguments
@@ -708,8 +706,6 @@ def arg_parse():
 
     if args.model == "GS":
         pnames = ["solitons","coral","maze","waves","flicker","worms"]
-        seeds = ["single","dual","noise"]
-
         pattern = ""
         while not pattern:
             print("--- Pattern choices ---")
@@ -720,6 +716,7 @@ def arg_parse():
                 pattern = ""
         args.pattern = pattern
 
+        seeds = ["single","dual","noise"]
         seed = ""
         while not seed:
             print("Initial seeding choices: " + ", ".join(seeds))
@@ -728,50 +725,43 @@ def arg_parse():
                 print("please select seed condition from list")
                 seed = ""
         args.seed = seed
+
+    model_classes = {
+        "FN": 'fitzhugh_nagumo',
+        "GM": 'gierer_meinhardt',
+        "GS": 'gray_scott',
+    }
+    args.experiment_name = f'{model_classes[args.model]}{"_" + args.pattern if hasattr(args, 'pattern') else ""}'
     
     return args
 
 
-def make_run_config(args, max_frames=250, output_dpi=300, save_frames=False, verbose=False):
-    n_steps = args.timesteps
-    if verbose: print("Running simulation with " + str(n_steps) + " timesteps.")
-    frame_interval = n_steps//max_frames
-
-    if args.moviemode:
-        if verbose: print("Movie mode set to ON")
-        output_dpi = MOVIEMODE_DPI #reduce image DPI if movie mode
-        save_frames = True
-        if verbose: print(str(max_frames) + " movie images will be produced")
-
-    run_config = {
-        "save_frames" : save_frames,
-        "frame_interval" : frame_interval,
-        "output_dpi" : output_dpi,
-        "simulation_name" : args.outname,
-        "max_frames" : max_frames,
-        "n_steps" : n_steps  
-    }
-    return run_config
-
-
 if __name__ == "__main__":
+    # read arguments, create basic setup
     args = arg_parse()
-    run_config = make_run_config(args, verbose=True)
-    params, modelClass = setModelParams(args)
-    for k,v in run_config.items():
-        if not k in params.keys(): params[k] = v
+    library = ExperimentLibrary()
+    model, grid, renderer = library.fetch(args.experiment_name)
 
-    grid = SimulationGrid(params["grid_size"], params["grid_spacing"])
-    grid.seed(params["seed"])
+    # configure output
+    if hasattr(args, 'outname'): renderer.simulation_name = args.outname
+    n_steps = args.timesteps
+    max_frames=250
+    frame_interval = n_steps//max_frames
+    print("Running simulation with " + str(n_steps) + " timesteps.")
 
-    model = modelClass(params)
-    renderer = Renderer(params)
+    save_frames=False
+    if args.moviemode:
+        print("Movie mode set to ON")
+        output_dpi = 200 #reduce image DPI if movie mode
+        save_frames = True
+        print(str(max_frames) + " movie images will be produced")
 
-    should_save = make_frame_selector(params["n_steps"])
+    should_save = make_frame_selector(n_steps)
     def callback(step, grid):
-        if params["save_frames"] and should_save(step):
+        if save_frames and should_save(step):
             renderer.save_frame(step, grid)
 
+    # core: snapshot, running, snapshot
     renderer.save_image("initial_v", grid)
-    model.run(grid, params["n_steps"], callback=callback)
+    model.run(grid, n_steps, callback=callback)
     renderer.save_image("final_v", grid)
