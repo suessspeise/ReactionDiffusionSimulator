@@ -12,11 +12,11 @@
 - **✅ Step 3.1 — Abstract base class**
 - **✅ Step 3.2 — Implement `GrayScott` subclass**
 - **✅ Step 3.3 — Implement `GiererMeinhardt` and `FitzHughNagumo`**
-- **✅ Step 3.4 — figure out how to actually use the OOP models, without skipping more steps. 
+- **✅ Step 3.4 — figure out how to actually use the OOP models, without skipping more steps.**
 - **✅ Step 4.1 — Wrap `makeImg` in a `Renderer` class**
 - **✅ Step 4.2 - Make a function that selects frams for saving**
 - **✅ Step 4.3 — seperate functionality of `arg_parse`**
-- **✅ Step 4.4 — clean up main and encapsulate run config creation **
+- **✅ Step 4.4 — clean up main and encapsulate run config creation**
 - **disentagle colormap from model params**
 - **move example experiments into a new place**
 one idea is to have a standalone dict of named experiment like
@@ -31,6 +31,7 @@ GRAY_SCOTT_EXPERIMENTS = {
 - **5.0 implement random seeds**
 - **6.0 Pillow Renderer**
 - **7.0 augment CLI interface capabilities**
+- **8.0 more comprehensive class level documentation**
 
 
 ### [Watch an example simulation on YouTube.](https://youtu.be/jFM8qlKXyp0)
