@@ -25,11 +25,7 @@ Example usage 2:
 import os
 import argparse
 from abc import ABC, abstractmethod
-
 import numpy as np
-
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 # these are default time steps that can be written out regar
@@ -737,6 +733,9 @@ def arg_parse():
 
 
 if __name__ == "__main__":
+    import matplotlib
+    matplotlib.use("Agg")
+    
     # read arguments, create basic setup
     args = arg_parse()
     library = ExperimentLibrary()
