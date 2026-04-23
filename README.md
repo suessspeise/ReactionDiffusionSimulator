@@ -19,10 +19,9 @@
 - **✅ 4.4 — clean up main and encapsulate run config creation**
 - **✅ 4.5 - Create ExperimentLibrary class**
 - **✅ 4.6 - replace setModelParams with use of Experiment class in main**
-- **4.7 - augment functionality of ExperimentLibrary class**
-`__repr__`, `__iter__`, `__contains__`, `__getitem__`, `__len__`, name property
-
-- **5.0 implement random seeds**
+- **✅ 4.7 - augment functionality of ExperimentLibrary class**
+`__repr__`, `__iter__`, `__contains__`, `__getitem__`, `__len__`, 
+- **✅ 5.0 implement random seeds**
 - **6.0 Pillow Renderer**
 - **7.0 augment CLI interface capabilities**
 - **8.0 more comprehensive class level documentation**

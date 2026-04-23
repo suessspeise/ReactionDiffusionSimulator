@@ -28,16 +28,15 @@ from abc import ABC, abstractmethod
 import numpy as np
 import matplotlib.pyplot as plt
 
-# these are default time steps that can be written out regar
+# these are default time steps that can be written out regardle
 DEFAULT_EARLY_STEPS = [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150]
 
-def make_frame_selector(n_steps, max_frames=250, early_steps=None):
-    early = set(early_steps or DEFAULT_EARLY_STEPS)
+def make_frame_selector(n_steps, max_frames=250, write_out_steps=None):
+    early = set(write_out_steps or DEFAULT_EARLY_STEPS)
     interval = max(1, n_steps // max_frames)
     def should_save(step):
         return step in early or step % interval == 0
     return should_save
-
 
 class SimulationGrid:
     """
@@ -214,7 +213,6 @@ class Renderer:
         grid : SimulationGrid
         """
         self._render(grid.v, label, colorbar)
-
 
 class ReactionDiffusionModel(ABC):
     """
@@ -538,7 +536,22 @@ class ExperimentLibrary:
         },
     }
 
-    def list(self):
+    def __iter__(self):
+        return iter(self._EXPERIMENTS.items())
+
+    def __repr__(self):
+        return "ExperimentLibrary, contains: " + str(list(self._EXPERIMENTS.keys()))
+    
+    def __contains__(self, name):
+        return name in self._EXPERIMENTS
+
+    def __getitem__(self, name):
+        return self._EXPERIMENTS[name]
+
+    def __len__(self):
+        return len(self._EXPERIMENTS)
+
+    def print(self):
         """Print available experiments with descriptions."""
         for name, spec in self._EXPERIMENTS.items():
             print(f"{name:30s} {spec['description']}")
@@ -582,104 +595,6 @@ class ExperimentLibrary:
         renderer = Renderer(render_params)
 
         return model, grid, renderer
-
-# def setModelParams(args, verbose=True):
-#     model = args.model
-#     grid_size = 200
-
-#     if model == "FN":
-#         if verbose: print("FitzHugh-Nagumo model selected")
-#         # modelFunc = simulate_fitzhugh_nagumo
-#         if verbose: print("SETTING GRID SIZE TO 120 - STABILITY REASONS")
-#         if verbose: print("WARNING: IF TIMESTEPS LESS THAN 80000, NO PATTERN MAY APPEAR")
-#         #FitzHugh-Nagumo requires fine-timestepping
-#         grid_size = 120
-#         dx = 2./grid_size
-#         dt = 0.9 * dx**2/2
-#         params = {"Du":5e-3, "Dv":2.8e-4, "tau":0.1, "k":-0.005,"myCmap":plt.cm.PRGn,"edgeMax":False,"dt":dt,"dx":dx,"seed":"noise"}
-#         params = {
-#             "diffusion_recovery":   params["Du"],
-#             "diffusion_excitation": params["Dv"],
-#             "drive":                params["k"],
-#             "recovery_time_scale":  params["tau"],
-#             "time_step":            params["dt"],
-#             "grid_spacing":         params["dx"],
-#             "colormap":             params.get("myCmap"),
-#             "fix_color_scale":      params.get("edgeMax", False),
-#             "seed" : params["seed"],
-#         }
-
-
-#     elif model == "GM":
-#         if verbose: print("Gierer-Meinhardt model selected")
-#         # modelFunc = simulate_gierer_meinhardt
-#         params = {"Du":2, "Dv":0.1, "rho":0.5, "kappa":0.238, "mu":1, "ku":0.9, "kv":1.0, "sv":0.3,
-#                   "myCmap":plt.cm.copper,"edgeMax":False,"dt":0.1,"dx":1,"seed":"noise"}
-#         params = {
-#             "diffusion_u":        params["Du"],
-#             "diffusion_v":        params["Dv"],
-#             "reaction_rate":      params["rho"],
-#             "saturation_coeff":   params["kappa"],
-#             "inhibitor_decay_rate": params["mu"],
-#             "activator_decay_rate": params["ku"],
-#             "time_step":          params["dt"],
-#             "grid_spacing":       params["dx"],
-#             "colormap":           params.get("myCmap"),
-#             "fix_color_scale":    params.get("edgeMax", False),
-#             "seed" : params["seed"],
-#         }
-
-#     elif model == "GS":
-#         if verbose: print("Gray-Scott model selected")
-#         # modelFunc = simulate_gray_scott
-#         pnames = ["solitons","coral","maze","waves","flicker","worms"]
-#         pvals = [{"Du":0.14, "Dv":0.06, "F":0.035, "k":0.065, "myCmap":plt.cm.copper,    "edgeMax":False, "dt":1, "dx":1},
-#                  {"Du":0.16, "Dv":0.08, "F":0.060, "k":0.062, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1},
-#                  {"Du":0.19, "Dv":0.05, "F":0.060, "k":0.062, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1},
-#                  {"Du":0.12, "Dv":0.08, "F":0.020, "k":0.050, "myCmap":plt.cm.cubehelix, "edgeMax":True,  "dt":1, "dx":1},
-#                  {"Du":0.16, "Dv":0.08, "F":0.020, "k":0.055, "myCmap":plt.cm.cubehelix, "edgeMax":True,  "dt":1, "dx":1},
-#                  {"Du":0.16, "Dv":0.08, "F":0.054, "k":0.064, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1}]
-
-#         pchoices = dict(zip(pnames,pvals))
-#         params = pchoices[args.pattern]
-#         params["seed"] = args.seed
-
-
-
-
-#         params = {
-#             "diffusion_u": params["Du"],
-#             "diffusion_v": params["Dv"],
-#             "feed_rate": params["F"],
-#             "kill_rate": params["k"],
-            
-#             "time_step": params["dt"],
-#             "grid_spacing": params["dx"],
-#             "seed" : params["seed"],
-
-#             "colormap": params.get("myCmap"),
-#             "fix_color_scale": params.get("edgeMax", False),
-            
-#         }
-
-#     # this serves no purpose yet, other than to show how 
-#     # parameters are going to be separated in the future
-
-#     model_params = { 
-#         "grid_size" : grid_size,
-#         "time_step": params["time_step"],
-#         "grid_spacing": params["grid_spacing"],
-#         "seed" : params["seed"],
-#         }
-#     for k,v in model_params.items():
-#         if not k in params.keys(): params[k] = v
-
-#     model_classes = {
-#         "FN": FitzHughNagumo,
-#         "GM": GiererMeinhardt,
-#         "GS": GrayScott,
-#     }
-#     return params, model_classes[model]
 
 def arg_parse():
     #Parses the command line arguments
@@ -733,9 +648,13 @@ def arg_parse():
 
 
 if __name__ == "__main__":
+    # make this consistent
+    np.random.seed(187)
+
+    # use 'Agg' backend in CLI mode
     import matplotlib
     matplotlib.use("Agg")
-    
+
     # read arguments, create basic setup
     args = arg_parse()
     library = ExperimentLibrary()
