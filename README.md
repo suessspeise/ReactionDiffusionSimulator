@@ -5,34 +5,17 @@
 - **Step 1.0 — produce reference output for verification**
 - **✅ Step 1.1 — Eliminate the duplicate functions and legacy wrappers** 
 - **✅ Step 1.2 — Kill the globals**
-Replace `n`, `movieOutput`, `frameMod`, `size`, `myDPI`, `savPath`, `runName` with explicit parameters passed into functions. The `__main__` block assembles them and passes them down.
-*Verify: same reference output.*
 - **✅ Step 1.3 — Fix the `makeImg` mutation bug**
-The `M[1,1]` permanent alteration. Small fix, but do it now before the renderer gets wrapped in a class.
-*Verify: same reference output (the bug likely has negligible effect on most runs, but fix it cleanly).*
 - **✅ Step 2.1 — Create the class, move data into it**
-`SimulationGrid` holds `U`, `V`, `size`, `dx`. Constructor takes `size` and `dx`, initialises the arrays. Nothing else yet.
 - **✅ Step 2.2 — Move seeding logic in**
-The `single` / `dual` / `noise` initialisation block moves in as a `seed(method)` method.
 - **✅ Step 2.3 — Move `laplacian_operator` in**
-Becomes `grid.laplacian()`, operates on `self.U` and `self.V`.
-*Verify: call `grid.laplacian()` and compare output to the old standalone function on the same arrays.*
 - **✅ Step 3.1 — Abstract base class**
-A simple `ReactionDiffusionModel` base with an interface: `__init__(params)`, `step(grid)`, `run(grid, n_steps, callback=None)`. The callback is how the runner will hook in frame saving — the model calls `callback(step, grid)` if one is provided, and otherwise does nothing. This keeps the model rendering-agnostic.
 - **✅ Step 3.2 — Implement `GrayScott` subclass**
-Port `_simulate_gray_scott` into a class. `step(grid)` does one Euler step. `run()` is the loop. 
-*Verify: run `GrayScott` end-to-end against reference output.*
 - **✅ Step 3.3 — Implement `GiererMeinhardt` and `FitzHughNagumo`**
-Same pattern. One at a time, each verified against its own reference output.
 - **✅ Step 3.4 — figure out how to actually use the OOP models, without skipping more steps. 
-
 - **✅ Step 4.1 — Wrap `makeImg` in a `Renderer` class**
-this will enable us to exchange the rendering in the future. the aim is to use Pillow.
 - **✅ Step 4.2 - Make a function that selects frams for saving**
 - **✅ Step 4.3 — seperate functionality of `arg_parse`**
-  - move directory creation to Renderer
-  - separate argument gathering
-  - move computations to main (for now)
 - **✅ Step 4.4 — clean up main and encapsulate run config creation **
 - **disentagle colormap from model params**
 - **move example experiments into a new place**
@@ -45,8 +28,9 @@ GRAY_SCOTT_EXPERIMENTS = {
 }
 ```
 
-- *long term: Pillow Renderer*
-- *long term: augment CLI interface capabilities*
+- **5.0 implement random seeds**
+- **6.0 Pillow Renderer**
+- **7.0 augment CLI interface capabilities**
 
 
 ### [Watch an example simulation on YouTube.](https://youtu.be/jFM8qlKXyp0)
