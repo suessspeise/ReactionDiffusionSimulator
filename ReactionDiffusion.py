@@ -29,6 +29,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 
+__version__  = "2.0.0"
+__author__ = "Jens Luebeck; Hernan Campos"
+__url__ = "https://github.com/suessspeise/ReactionDiffusionSimulator/"
+__all__      = [
+    "SimulationGrid",
+    "ReactionDiffusionModel",
+    "GrayScott",
+    "GiererMeinhardt",
+    "FitzHughNagumo",
+    "Renderer",
+    "GrayscaleRenderer",
+    "ExperimentLibrary",
+    "make_frame_selector",
+    "DEFAULT_EARLY_STEPS",
+]
+
 # these are default time steps that can be written out regardle
 DEFAULT_EARLY_STEPS = [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150]
 
