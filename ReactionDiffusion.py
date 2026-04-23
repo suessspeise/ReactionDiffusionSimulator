@@ -369,6 +369,224 @@ class GiererMeinhardt(ReactionDiffusionModel):
         grid.u[:] += self.time_step * activator_rate
         grid.v[:] += self.time_step * inhibitor_rate
 
+class ExperimentLibrary:
+    """
+    A curated collection of ready-to-run reaction-diffusion experiments.
+
+    Each experiment bundles a model, grid, and renderer with
+    sensible defaults. Advanced users can modify any component
+    after fetching.
+
+    Usage
+    -----
+    library = ExperimentLibrary()
+    library.list()
+    model, grid, renderer = library.fetch("gray_scott_coral")
+    """
+
+    _EXPERIMENTS = {
+
+        # --- Gray-Scott ---
+
+        "gray_scott_solitons": {
+            "description": "Stable localised spots that persist and slowly move.",
+            "model_class": GrayScott,
+            "model_params": {
+                "diffusion_u": 0.14,
+                "diffusion_v": 0.06,
+                "feed_rate":   0.035,
+                "kill_rate":   0.065,
+                "time_step":   1.0,
+            },
+            "grid": {
+                "grid_size": 200, "grid_spacing": 1.0, "seed": "noise",
+            },
+            "renderer": {
+                "colormap": plt.cm.copper, "fix_color_scale": True,
+            },
+        },
+
+        "gray_scott_coral": {
+            "description": "Coral-like branching structures with slow, organic growth.",
+            "model_class": GrayScott,
+            "model_params": {
+                "diffusion_u": 0.16,
+                "diffusion_v": 0.08,
+                "feed_rate":   0.060,
+                "kill_rate":   0.062,
+                "time_step":   1.0,
+            },
+            "grid": {
+                "grid_size": 200, "grid_spacing": 1.0, "seed": "noise",
+            },
+            "renderer": {
+                "colormap": plt.cm.cubehelix, "fix_color_scale": False,
+            },
+        },
+
+        "gray_scott_maze": {
+            "description": "Dense labyrinthine stripes filling the domain.",
+            "model_class": GrayScott,
+            "model_params": {
+                "diffusion_u": 0.19,
+                "diffusion_v": 0.05,
+                "feed_rate":   0.060,
+                "kill_rate":   0.062,
+                "time_step":   1.0,
+            },
+            "grid": {
+                "grid_size": 200, "grid_spacing": 1.0, "seed": "noise",
+            },
+            "renderer": {
+                "colormap": plt.cm.cubehelix, "fix_color_scale": False,
+            },
+        },
+
+        "gray_scott_waves": {
+            "description": "Travelling wave fronts that sweep across the domain.",
+            "model_class": GrayScott,
+            "model_params": {
+                "diffusion_u": 0.12,
+                "diffusion_v": 0.08,
+                "feed_rate":   0.020,
+                "kill_rate":   0.050,
+                "time_step":   1.0,
+            },
+            "grid": {
+                "grid_size": 200, "grid_spacing": 1.0, "seed": "noise",
+            },
+            "renderer": {
+                "colormap": plt.cm.cubehelix, "fix_color_scale": True,
+            },
+        },
+
+        "gray_scott_flicker": {
+            "description": "Unstable spots that appear, flicker, and annihilate.",
+            "model_class": GrayScott,
+            "model_params": {
+                "diffusion_u": 0.16,
+                "diffusion_v": 0.08,
+                "feed_rate":   0.020,
+                "kill_rate":   0.055,
+                "time_step":   1.0,
+            },
+            "grid": {
+                "grid_size": 200, "grid_spacing": 1.0, "seed": "noise",
+            },
+            "renderer": {
+                "colormap": plt.cm.cubehelix, "fix_color_scale": True,
+            },
+        },
+
+        "gray_scott_worms": {
+            "description": "Worm-like moving filaments with occasional branching.",
+            "model_class": GrayScott,
+            "model_params": {
+                "diffusion_u": 0.16,
+                "diffusion_v": 0.08,
+                "feed_rate":   0.054,
+                "kill_rate":   0.064,
+                "time_step":   1.0,
+            },
+            "grid": {
+                "grid_size": 200, "grid_spacing": 1.0, "seed": "noise",
+            },
+            "renderer": {
+                "colormap": plt.cm.cubehelix, "fix_color_scale": False,
+            },
+        },
+
+        # --- Gierer-Meinhardt ---
+
+        "gierer_meinhardt": {
+            "description": "Activator-inhibitor system producing spot and stripe Turing patterns.",
+            "model_class": GiererMeinhardt,
+            "model_params": {
+                "diffusion_u":          2.0,
+                "diffusion_v":          0.1,
+                "reaction_rate":        0.5,
+                "saturation_coeff":     0.238,
+                "inhibitor_decay_rate": 1.0,
+                "activator_decay_rate": 0.9,
+                "time_step":            0.1,
+            },
+            "grid": {
+                "grid_size": 200, "grid_spacing": 1.0, "seed": "noise",
+            },
+            "renderer": {
+                "colormap": plt.cm.copper, "fix_color_scale": False,
+            },
+        },
+
+        # --- FitzHugh-Nagumo ---
+
+        "fitzhugh_nagumo": {
+            "description": (
+                "Excitable medium producing spiral waves. "
+                "Requires fine timestepping — allow at least 80000 steps for patterns to emerge."
+            ),
+            "model_class": FitzHughNagumo,
+            "model_params": {
+                "diffusion_recovery":   5e-3,
+                "diffusion_excitation": 2.8e-4,
+                "drive":                -0.005,
+                "recovery_time_scale":  0.1,
+                "time_step":            0.9 * (2./120)**2 / 2,  # stability-derived
+            },
+            "grid": {
+                "grid_size": 120, "grid_spacing": 2./120, "seed": "noise",
+            },
+            "renderer": {
+                "colormap": plt.cm.PRGn, "fix_color_scale": False,
+            },
+        },
+    }
+
+    def list(self):
+        """Print available experiments with descriptions."""
+        for name, spec in self._EXPERIMENTS.items():
+            print(f"{name:30s} {spec['description']}")
+
+    def fetch(self, name: str, simulation_name: str = None):
+        """
+        Assemble and return a (model, grid, renderer) bundle.
+
+        Parameters
+        ----------
+        name : str
+            Experiment name as returned by list().
+        simulation_name : str, optional
+            Override the output directory name. Defaults to the
+            experiment name.
+
+        Returns
+        -------
+        model : ReactionDiffusionModel
+        grid  : SimulationGrid
+        renderer : Renderer
+        """
+        if name not in self._EXPERIMENTS:
+            raise ValueError(
+                f"Unknown experiment '{name}'. "
+                f"Call list() to see available experiments."
+            )
+
+        spec = self._EXPERIMENTS[name]
+
+        grid = SimulationGrid(
+            spec["grid"]["grid_size"],
+            spec["grid"]["grid_spacing"],
+        )
+        grid.seed(spec["grid"]["seed"])
+
+        model = spec["model_class"](spec["model_params"])
+
+        render_params = dict(spec["renderer"])
+        render_params["simulation_name"] = simulation_name or name
+        renderer = Renderer(render_params)
+
+        return model, grid, renderer
+
 
 def setModelParams(args, verbose=True):
     model = args.model

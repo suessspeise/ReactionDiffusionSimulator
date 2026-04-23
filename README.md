@@ -17,16 +17,10 @@
 - **✅ Step 4.2 - Make a function that selects frams for saving**
 - **✅ Step 4.3 — seperate functionality of `arg_parse`**
 - **✅ Step 4.4 — clean up main and encapsulate run config creation**
-- **disentagle colormap from model params**
-- **move example experiments into a new place**
-one idea is to have a standalone dict of named experiment like
-```py
-GRAY_SCOTT_EXPERIMENTS = {
-    "coral":    {"diffusion_u": 0.16, ...},
-    "maze":     {"diffusion_u": 0.19, ...},
-    ...
-}
-```
+- **✅ 4.5 - Create ExperimentLibrary class**
+- **4.6 - replace setModelParams with use of Experiment class in main**
+- **4.7 - augment functionality of ExperimentLibrary class**
+`__repr__`, `__iter__`, `__contains__`, `__getitem__`, `__len__`, name property
 
 - **5.0 implement random seeds**
 - **6.0 Pillow Renderer**
