@@ -150,30 +150,30 @@ class SimulationGrid:
 
 class Renderer:
     """
-    Handles rendering and saving of simulation field snapshots.
+    Matplotlib-based renderer for simulation field snapshots.
 
-    Owns all rendering configuration. The simulation and runner
-    are entirely agnostic of how or whether frames are saved.
+    Owns all rendering configuration. The simulation is entirely
+    agnostic of how or whether frames are saved.
 
     Parameters
     ----------
     params : dict
         Expected keys:
-            colormap        : matplotlib.colors.Colormap
-            fix_color_scale : bool
             simulation_name : str
-            output_dpi      : int
         Optional keys:
-            bg              : str  (default 'black')
+            colormap        : matplotlib.colors.Colormap  (default plt.cm.viridis)
+            fix_color_scale : bool                        (default False)
+            output_dpi      : int                         (default 300)
+            bg              : str                         (default 'black')
     """
 
     def __init__(self, params: dict):
-        self.simulation_name  = params["simulation_name"]
-        self.output_directory = self.simulation_name + '_images'
-        self.colormap         = params.get("colormap", plt.cm.viridis)
-        self.fix_color_scale  = params.get("fix_color_scale", False)
-        self.output_dpi       = params.get("output_dpi", 300)
-        self.bg               = params.get("bg", "black")
+        self.simulation_name         = params["simulation_name"]
+        self.output_directory        = self.simulation_name + "_images"
+        self.colormap                = params.get("colormap", plt.cm.viridis)
+        self.fix_color_scale         = params.get("fix_color_scale", False)
+        self.output_dpi              = params.get("output_dpi", 300)
+        self.bg                      = params.get("bg", "black")
         self.output_directory_created = False
 
     def __iter__(self):
@@ -188,44 +188,79 @@ class Renderer:
         return dict(self)
 
     def _build_path(self, label: str) -> str:
-        return os.path.join(self.output_directory, f"{self.simulation_name}_{label}.png")
+        return os.path.join(self.output_directory,
+                            f"{self.simulation_name}_{label}.png")
 
     def _create_output_directory(self):
-        self.output_directory = self.simulation_name + '_images'
         if not os.path.exists(self.output_directory):
             os.makedirs(self.output_directory)
         self.output_directory_created = True
 
-    def _render(self, M: np.ndarray, label: str, colorbar: bool = False):
+    def _to_figure(self, M: np.ndarray) -> tuple:
         """
-        Internal: render a single field snapshot and save to disk.
+        Render a 2D float array to a matplotlib (fig, ax) tuple.
 
-        Uses explicit vmin/vmax instead of sentinel value mutation
-        to enforce a fixed color scale.
+        The figure is not saved or displayed — the caller decides
+        what to do with it. This is the single override point for
+        subclasses that change rendering behaviour.
+
+        Parameters
+        ----------
+        M : ndarray of shape (H, W)
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+        ax  : matplotlib.axes.Axes
         """
-        if not self.output_directory_created: self._create_output_directory()
-
         vmin, vmax = (0.0, 1.0) if self.fix_color_scale else (None, None)
 
-        plt.figure()
-        plt.rcParams['axes.facecolor']    = self.bg
-        plt.rcParams['savefig.facecolor'] = self.bg
-        plt.axis('off')
+        fig, ax = plt.subplots()
+        fig.patch.set_facecolor(self.bg)
+        ax.set_facecolor(self.bg)
+        ax.axis("off")
+        ax.imshow(M, cmap=self.colormap, extent=[-1, 1, -1, 1],
+                  vmin=vmin, vmax=vmax)
+        return fig, ax
 
-        plt.imshow(M, cmap=self.colormap, extent=[-1, 1, -1, 1],
-                   vmin=vmin, vmax=vmax)
+    def _render(self, M: np.ndarray, label: str):
+        """Produce a figure and save it to disk."""
+        if not self.output_directory_created:
+            self._create_output_directory()
+        fig, _ = self._to_figure(M)
+        fig.savefig(self._build_path(label), dpi=self.output_dpi)
+        plt.close(fig)
 
-        if colorbar:
-            plt.colorbar()
+    def to_figure(self, grid: SimulationGrid) -> tuple:
+        """
+        Return the current inhibitor field as a (fig, ax) tuple without saving.
 
-        plt.savefig(self._build_path(label), dpi=self.output_dpi)
-        plt.close()
+        Intended for interactive use in Jupyter notebooks. The caller
+        has full control over the figure — it can be displayed, annotated,
+        or saved to a custom path.
 
-    def save_frame(self, step: int, grid: SimulationGrid, colorbar: bool = False):
+        Parameters
+        ----------
+        grid : SimulationGrid
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+        ax  : matplotlib.axes.Axes
+
+        Example
+        -------
+        fig, ax = renderer.to_figure(grid)
+        ax.set_title("My simulation")
+        fig.savefig("custom_path.png", dpi=150)
+        """
+        return self._to_figure(grid.v)
+
+    def save_frame(self, step: int, grid: SimulationGrid):
         """
         Save the current inhibitor field as a numbered frame.
 
-        This is the method intended for use as a runner callback.
+        Intended for use as a callback during model.run().
 
         Parameters
         ----------
@@ -233,9 +268,9 @@ class Renderer:
             Current simulation step, used to label the file.
         grid : SimulationGrid
         """
-        self._render(grid.v, f"v_{step}", colorbar)
+        self._render(grid.v, f"v_{step}")
 
-    def save_image(self, label: str, grid: SimulationGrid, colorbar: bool = False):
+    def save_image(self, label: str, grid: SimulationGrid):
         """
         Save the current inhibitor field with an arbitrary label.
 
@@ -247,7 +282,7 @@ class Renderer:
             Descriptive label used in the filename.
         grid : SimulationGrid
         """
-        self._render(grid.v, label, colorbar)
+        self._render(grid.v, label)
 
 class GrayscaleRenderer(Renderer):
     """
