@@ -32,6 +32,29 @@ import matplotlib.pyplot as plt
 DEFAULT_EARLY_STEPS = [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150]
 
 def make_frame_selector(n_steps, max_frames=250, write_out_steps=None):
+    """
+    Return a function that decides whether a given step should be saved.
+
+    Combines a regular interval (derived from n_steps and max_frames) with
+    an explicit list of early steps to capture pattern emergence at the
+    start of the simulation.
+
+    Parameters
+    ----------
+    n_steps : int
+        Total number of simulation steps. Used to compute the interval.
+    max_frames : int, optional
+        Target maximum number of frames to save over the full run.
+        Actual count may be slightly higher due to early_steps. Default 250.
+    write_out_steps : list of int, optional
+        Specific step indices to always save, regardless of interval.
+        Defaults to DEFAULT_EARLY_STEPS if not provided.
+
+    Returns
+    -------
+    should_save : callable
+        A function should_save(step: int) -> bool.
+    """
     early = set(write_out_steps or DEFAULT_EARLY_STEPS)
     interval = max(1, n_steps // max_frames)
     def should_save(step):
@@ -266,11 +289,11 @@ class FitzHughNagumo(ReactionDiffusionModel):
     FitzHugh-Nagumo reaction-diffusion model.
 
     Expected params keys:
-        diffusion_recovery : float
+        diffusion_recovery   : float
         diffusion_excitation : float
-        drive : float
-        recovery_time_scale : float
-        time_step : float
+        drive                : float
+        recovery_time_scale  : float
+        time_step            : float
     """
 
     def __init__(self, params: dict):
@@ -299,9 +322,9 @@ class GrayScott(ReactionDiffusionModel):
     Expected params keys:
         diffusion_u : float
         diffusion_v : float
-        feed_rate : float
-        kill_rate : float
-        time_step : float
+        feed_rate  : float
+        kill_rate  : float
+        time_step  : float
     """
 
     def __init__(self, params: dict):
@@ -329,11 +352,13 @@ class GiererMeinhardt(ReactionDiffusionModel):
     Gierer–Meinhardt activator–inhibitor system reaction-diffusion model.
 
     Expected params keys:
-        diffusion_u : float
-        diffusion_v : float
-        feed_rate : float
-        kill_rate : float
-        time_step : float
+        diffusion_u          : float
+        diffusion_v          : float
+        reaction_rate        : float
+        saturation_coeff     : float
+        inhibitor_decay_rate : float
+        activator_decay_rate : float
+        time_step            : float
     """
 
     def __init__(self, params: dict):
@@ -537,10 +562,7 @@ class ExperimentLibrary:
     }
 
     def __iter__(self):
-        return iter(self._EXPERIMENTS.items())
-
-    def __repr__(self):
-        return "ExperimentLibrary, contains: " + str(list(self._EXPERIMENTS.keys()))
+        return iter(self._EXPERIMENTS)
     
     def __contains__(self, name):
         return name in self._EXPERIMENTS
@@ -550,6 +572,9 @@ class ExperimentLibrary:
 
     def __len__(self):
         return len(self._EXPERIMENTS)
+
+    def __repr__(self):
+        return "ExperimentLibrary, contains: " + str(list(self._EXPERIMENTS.keys()))
 
     def print(self):
         """Print available experiments with descriptions."""
@@ -597,7 +622,29 @@ class ExperimentLibrary:
         return model, grid, renderer
 
 def arg_parse():
-    #Parses the command line arguments
+    """
+    Parse command-line arguments and collect any required interactive input.
+
+    Handles model selection interactively if not supplied via the command
+    line. For the Gray-Scott model, also prompts for pattern and seed
+    choices, since these have no sensible single default.
+
+    Constructs args.experiment_name as a key into ExperimentLibrary,
+    combining model and pattern where applicable.
+
+    Returns
+    -------
+    args : argparse.Namespace
+        Parsed arguments. Always contains:
+            model          : str  — 'FN', 'GM', or 'GS'
+            outname        : str  — output name prefix
+            moviemode      : bool
+            timesteps      : int
+            experiment_name: str  — key for ExperimentLibrary.fetch()
+        For GS only:
+            pattern        : str  — e.g. 'coral', 'maze'
+            seed           : str  — 'single', 'dual', or 'noise'
+    """
     parser = argparse.ArgumentParser(description="Gray-Scott simulation")
     parser.add_argument("-o", "--outname", help="simulation run output name",default="simulation_output")
     parser.add_argument("-mov", "--moviemode", action='store_true',help="Run the script in \"movie mode\"\
@@ -642,10 +689,9 @@ def arg_parse():
         "GM": 'gierer_meinhardt',
         "GS": 'gray_scott',
     }
-    args.experiment_name = f'{model_classes[args.model]}{"_" + args.pattern if hasattr(args, 'pattern') else ""}'
+    args.experiment_name = f'{model_classes[args.model]}{"_" + args.pattern if hasattr(args, "pattern") else ""}'
     
     return args
-
 
 if __name__ == "__main__":
     # make this consistent
@@ -670,7 +716,7 @@ if __name__ == "__main__":
     save_frames=False
     if args.moviemode:
         print("Movie mode set to ON")
-        output_dpi = 200 #reduce image DPI if movie mode
+        renderer.output_dpi = 200 #reduce image DPI if movie mode
         save_frames = True
         print(str(max_frames) + " movie images will be produced")
 
