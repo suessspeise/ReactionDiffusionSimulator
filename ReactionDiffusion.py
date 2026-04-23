@@ -110,6 +110,8 @@ class SimulationGrid:
         # initialise interior of U to 1.0 (standard baseline)
         self.u[:] = 1.0
 
+    def __repr__(self): return f'Grid ({self.grid_size}x{self.grid_size}, dx={self.grid_spacing})'
+
     @property
     def u(self):
         """Interior view of U (excludes boundary ring)."""
@@ -197,16 +199,18 @@ class MatplotlibRenderer:
         self.bg                      = params.get("bg", "black")
         self.output_directory_created = False
 
-    def __iter__(self):
-        yield 'simulation_name', self.simulation_name
-        yield 'output_directory', self.output_directory
-        yield 'fix_color_scale', self.fix_color_scale
-        yield 'output_dpi', self.output_dpi
-        yield 'bg', self.bg
-        yield 'output_directory_created', self.output_directory_created
+        self._cfg = {
+            "simulation_name": self.simulation_name,
+            "output_directory": self.output_directory,
+            "colormap": self.colormap,
+            "fix_color_scale": self.fix_color_scale,
+            "output_dpi": self.output_dpi,
+            "bg": self.bg,
+            "output_directory_created": self.output_directory_created
+        }
 
     def params(self):
-        return dict(self)
+        return self._cfg
 
     def _build_path(self, label: str) -> str:
         return os.path.join(self.output_directory,
@@ -427,6 +431,18 @@ class ReactionDiffusionModel(ABC):
     def __init__(self, params: dict):
         self.params = params
 
+    def __iter__(self): return iter(self._cfg)        # yields keys
+
+    def __len__(self): return len(self._cfg)
+    
+    def __getitem__(self, k): return self._cfg[k]
+    
+    def __repr__(self):
+        description = f'{self.model_name} Model:\n'
+        for k in list(self):
+            description += f'  {k:20s}{self[k]}\n'
+        return description
+
     @abstractmethod
     def step(self, grid: SimulationGrid):
         """
@@ -470,12 +486,21 @@ class FitzHughNagumo(ReactionDiffusionModel):
     """
 
     def __init__(self, params: dict):
+        self.model_name = "FitzHugh-Nagumo"
         super().__init__(params)
         self.diffusion_recovery   = params["diffusion_recovery"]
         self.diffusion_excitation = params["diffusion_excitation"]
         self.drive                = params["drive"]
         self.recovery_time_scale  = params["recovery_time_scale"]
         self.time_step            = params["time_step"]
+
+        self._cfg = {
+            "diffusion_recovery":   self.diffusion_recovery,
+            "diffusion_excitation": self.diffusion_excitation,
+            "drive":                self.drive,
+            "recovery_time_scale":  self.recovery_time_scale,
+            "time_step":            self.time_step,
+        }
 
     def step(self, grid: SimulationGrid):
         Lu, Lv = grid.laplacian()
@@ -501,12 +526,21 @@ class GrayScott(ReactionDiffusionModel):
     """
 
     def __init__(self, params: dict):
+        self.model_name = "Gray–Scott"
         super().__init__(params)
         self.diffusion_u = params["diffusion_u"]
         self.diffusion_v = params["diffusion_v"]
         self.feed_rate   = params["feed_rate"]
         self.kill_rate   = params["kill_rate"]
         self.time_step   = params["time_step"]
+
+        self._cfg = {
+            "diffusion_u": self.diffusion_u,
+            "diffusion_v": self.diffusion_v,
+            "feed_rate":   self.feed_rate,
+            "kill_rate":   self.kill_rate,
+            "time_step":   self.time_step,
+        }
 
     def step(self, grid: SimulationGrid):
         Lu, Lv = grid.laplacian()
@@ -535,6 +569,7 @@ class GiererMeinhardt(ReactionDiffusionModel):
     """
 
     def __init__(self, params: dict):
+        self.model_name = "Gierer–Meinhardt"
         super().__init__(params)
         self.diffusion_u      = params["diffusion_u"]
         self.diffusion_v      = params["diffusion_v"]
@@ -543,6 +578,16 @@ class GiererMeinhardt(ReactionDiffusionModel):
         self.inhibitor_decay  = params["inhibitor_decay_rate"]   # mu
         self.activator_decay  = params["activator_decay_rate"]   # k_u
         self.time_step        = params["time_step"]
+
+        self._cfg = {
+            "diffusion_u":      self.diffusion_u,
+            "diffusion_v":      self.diffusion_v,
+            "reaction_rate":    self.reaction_rate,
+            "saturation_coeff": self.saturation_coeff,
+            "inhibitor_decay":  self.inhibitor_decay,
+            "activator_decay":  self.activator_decay,
+            "time_step":        self.time_step,
+        }
 
     def step(self, grid: SimulationGrid):
         Lu, Lv = grid.laplacian()
