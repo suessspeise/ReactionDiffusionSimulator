@@ -646,19 +646,21 @@ def arg_parse():
     parser.add_argument("-m","--model", choices=['FN','GM','GS'], help="Model simulation choice FN [FitzHugh-Nagumo]\
         \nGM [Gierer-Meinhardt]\nGS [Gray-Scott].")
     args = parser.parse_args()
-    
-    model = args.model
 
     #Get input interactively if no command line args set
-    while not model:
+    while not args.model:
         print("--- Model choices --- \nFN [FitzHugh-Nagumo]\nGM [Gierer-Meinhardt]\nGS [Gray-Scott]")
-        model = input("(choose one): ").rstrip().upper()
-        if model not in ["FN","GM","GS"]:
+        args.model = input("(choose one): ").rstrip().upper()
+        if args.model not in ["FN","GM","GS"]:
             print("please enter two-letter model name from list\n")
-            model = ""
+            args.model = ""
+    return args
 
 
-
+if __name__ == "__main__":
+    args = arg_parse()
+    model = args.model
+    
     #set up image saving
     totFrames = 250
     movieOutput = False
@@ -684,12 +686,7 @@ def arg_parse():
         "max_frames" : totFrames, #(implicit in frameMod currently)
         "n_steps" : n    
     }
-    
-    return model, run_config
 
-
-if __name__ == "__main__":
-    model, run_config = arg_parse()
     params, modelFunc, modelClass = setModelParams(model)
     for k,v in run_config.items():
         if not k in params.keys(): params[k] = v

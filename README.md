@@ -29,10 +29,11 @@ Same pattern. One at a time, each verified against its own reference output.
 - **✅ Step 4.1 — Wrap `makeImg` in a `Renderer` class**
 this will enable us to exchange the rendering in the future. the aim is to use Pillow.
 - **✅ Step 4.2 - Make a function that selects frams for saving**
-- **Step 4.3 — seperate functionality of arg_parse**
+- **✅ Step 4.3 — seperate functionality of `arg_parse`**
   - move directory creation to Renderer
   - separate argument gathering
   - move computations to main (for now)
+- ** Step 4.4 — clean up main and encapsulate run config creation **
 
 
 - *postponed: Move parameter presets into model classes*
