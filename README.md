@@ -33,13 +33,20 @@ this will enable us to exchange the rendering in the future. the aim is to use P
   - move directory creation to Renderer
   - separate argument gathering
   - move computations to main (for now)
-- ** Step 4.4 — clean up main and encapsulate run config creation **
+- **✅ Step 4.4 — clean up main and encapsulate run config creation **
+- **disentagle colormap from model params**
+- **move example experiments into a new place**
+one idea is to have a standalone dict of named experiment like
+```py
+GRAY_SCOTT_EXPERIMENTS = {
+    "coral":    {"diffusion_u": 0.16, ...},
+    "maze":     {"diffusion_u": 0.19, ...},
+    ...
+}
+```
 
-
-- *postponed: Move parameter presets into model classes*
-The `setModelParams` function's preset dictionaries (`solitons`, `coral`, etc.) become class methods or a factory: `GrayScott.from_preset("coral")`. `setModelParams` can then be retired.
 - *long term: Pillow Renderer*
-
+- *long term: augment CLI interface capabilities*
 
 
 ### [Watch an example simulation on YouTube.](https://youtu.be/jFM8qlKXyp0)

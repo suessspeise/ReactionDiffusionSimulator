@@ -32,7 +32,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+
 DEFAULT_EARLY_STEPS = [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 150]
+MOVIEMODE_DPI = 200
 
 def make_frame_selector(n_steps, max_frames=250, early_steps=None):
     early = set(early_steps or DEFAULT_EARLY_STEPS)
@@ -127,6 +129,7 @@ class SimulationGrid:
         Lv = (V[0:-2,1:-1] + V[1:-1,0:-2] + V[1:-1,2:] + V[2:,1:-1] - 4*V[1:-1,1:-1]) / dx2
 
         return Lu, Lv
+
 
 class Renderer:
     """
@@ -260,6 +263,7 @@ class ReactionDiffusionModel(ABC):
             if callback is not None:
                 callback(step, grid)
 
+
 class FitzHughNagumo(ReactionDiffusionModel):
     """
     FitzHugh-Nagumo reaction-diffusion model.
@@ -290,6 +294,7 @@ class FitzHughNagumo(ReactionDiffusionModel):
 
         grid.u[:] += self.time_step * recovery_rate
         grid.v[:] += self.time_step * excitation_rate
+
 
 class GrayScott(ReactionDiffusionModel):
     """
@@ -365,37 +370,15 @@ class GiererMeinhardt(ReactionDiffusionModel):
         grid.v[:] += self.time_step * inhibitor_rate
 
 
-def setModelParams(model, verbose=True):
-    """
-    Select a model and assemble its default parameter dictionary.
-
-    Parameters
-    ----------
-    model : {'FN', 'GM', 'GS'}
-        Model identifier.
-    verbose : bool, default False
-        If True, print selection details and warnings.
-
-    Returns
-    -------
-    params : dict
-        Parameter dictionary for the chosen model (includes plotting keys).
-    modelFunc : callable
-        The corresponding simulator function (FN, GM, or GS).
-
-    Notes
-    -----
-    - Sets global `size` (FN case).
-    - For 'FN', computes dx=2/size and dt=0.9*dx**2/2 for stability.
-    - For 'GS', prompts for a parameter preset and an initial seed via stdin.
-    """
+def setModelParams(args, verbose=True):
+    model = args.model
     grid_size = 200
 
     if model == "FN":
-        print("FitzHugh-Nagumo model selected")
+        if verbose: print("FitzHugh-Nagumo model selected")
         # modelFunc = simulate_fitzhugh_nagumo
-        print("SETTING GRID SIZE TO 120 - STABILITY REASONS")
-        print("WARNING: IF TIMESTEPS LESS THAN 80000, NO PATTERN MAY APPEAR")
+        if verbose: print("SETTING GRID SIZE TO 120 - STABILITY REASONS")
+        if verbose: print("WARNING: IF TIMESTEPS LESS THAN 80000, NO PATTERN MAY APPEAR")
         #FitzHugh-Nagumo requires fine-timestepping
         grid_size = 120
         dx = 2./grid_size
@@ -415,7 +398,7 @@ def setModelParams(model, verbose=True):
 
 
     elif model == "GM":
-        print("Gierer-Meinhardt model selected")
+        if verbose: print("Gierer-Meinhardt model selected")
         # modelFunc = simulate_gierer_meinhardt
         params = {"Du":2, "Dv":0.1, "rho":0.5, "kappa":0.238, "mu":1, "ku":0.9, "kv":1.0, "sv":0.3,
                   "myCmap":plt.cm.copper,"edgeMax":False,"dt":0.1,"dx":1,"seed":"noise"}
@@ -434,7 +417,7 @@ def setModelParams(model, verbose=True):
         }
 
     elif model == "GS":
-        print("Gray-Scott model selected")
+        if verbose: print("Gray-Scott model selected")
         # modelFunc = simulate_gray_scott
         pnames = ["solitons","coral","maze","waves","flicker","worms"]
         pvals = [{"Du":0.14, "Dv":0.06, "F":0.035, "k":0.065, "myCmap":plt.cm.copper,    "edgeMax":False, "dt":1, "dx":1},
@@ -445,28 +428,12 @@ def setModelParams(model, verbose=True):
                  {"Du":0.16, "Dv":0.08, "F":0.054, "k":0.064, "myCmap":plt.cm.cubehelix, "edgeMax":False, "dt":1, "dx":1}]
 
         pchoices = dict(zip(pnames,pvals))
-        pattern = ""
-        while not pattern:
-            print("--- Pattern choices ---")
-            print("pick 1: " + ", ".join(pnames))
-            pattern = input('Select reaction-diffusion model: ').rstrip().lower()
-            if not pattern in pchoices:
-                print("please select pattern name from list")
-                pattern = ""
+        params = pchoices[args.pattern]
+        params["seed"] = args.seed
 
-        params = pchoices[pattern]
 
-        #Set initial seed pattern for GS
-        seeds = ["single","dual","noise"]
-        seed = ""
-        while not seed:
-            print("Initial seeding choices: " + ", ".join(seeds))
-            seed = input("initial seeding choice: ").rstrip().lower()
-            if not seed in seeds:
-                print("please select seed condition from list")
-                seed = ""
 
-        params["seed"] = seed
+
         params = {
             "diffusion_u": params["Du"],
             "diffusion_v": params["Dv"],
@@ -484,8 +451,8 @@ def setModelParams(model, verbose=True):
 
     # this serves no purpose yet, other than to show how 
     # parameters are going to be separated in the future
+
     model_params = { 
-        # "n_steps" : n,
         "grid_size" : grid_size,
         "time_step": params["time_step"],
         "grid_spacing": params["grid_spacing"],
@@ -499,8 +466,7 @@ def setModelParams(model, verbose=True):
         "GM": GiererMeinhardt,
         "GS": GrayScott,
     }
-    modelClass = model_classes[model]
-    return params, modelClass
+    return params, model_classes[model]
 
 
 def arg_parse():
@@ -521,43 +487,61 @@ def arg_parse():
         if args.model not in ["FN","GM","GS"]:
             print("please enter two-letter model name from list\n")
             args.model = ""
+
+    if args.model == "GS":
+        pnames = ["solitons","coral","maze","waves","flicker","worms"]
+        seeds = ["single","dual","noise"]
+
+        pattern = ""
+        while not pattern:
+            print("--- Pattern choices ---")
+            print("pick 1: " + ", ".join(pnames))
+            pattern = input('Select reaction-diffusion model: ').rstrip().lower()
+            if not pattern in pnames:
+                print("please select pattern name from list")
+                pattern = ""
+        args.pattern = pattern
+
+        seed = ""
+        while not seed:
+            print("Initial seeding choices: " + ", ".join(seeds))
+            seed = input("initial seeding choice: ").rstrip().lower()
+            if not seed in seeds:
+                print("please select seed condition from list")
+                seed = ""
+        args.seed = seed
+    
     return args
+
+
+def make_run_config(args, max_frames=250, output_dpi=300, save_frames=False, verbose=False):
+    n_steps = args.timesteps
+    if verbose: print("Running simulation with " + str(n_steps) + " timesteps.")
+    frame_interval = n_steps//max_frames
+
+    if args.moviemode:
+        if verbose: print("Movie mode set to ON")
+        output_dpi = MOVIEMODE_DPI #reduce image DPI if movie mode
+        save_frames = True
+        if verbose: print(str(max_frames) + " movie images will be produced")
+
+    run_config = {
+        "save_frames" : save_frames,
+        "frame_interval" : frame_interval,
+        "output_dpi" : output_dpi,
+        "simulation_name" : args.outname,
+        "max_frames" : max_frames,
+        "n_steps" : n_steps  
+    }
+    return run_config
 
 
 if __name__ == "__main__":
     args = arg_parse()
-    model = args.model
-    
-    #set up image saving
-    totFrames = 250
-    movieOutput = False
-    n = args.timesteps
-    print("Running simulation with " + str(n) + " timesteps.")
-    frameMod = n//totFrames
-
-    myDPI = 300 #Image resolution DPI
-    if args.moviemode:
-        print("Movie mode set to ON")
-        myDPI = 200 #reduce image DPI if movie mode
-        movieOutput = True
-        print(str(totFrames) + " movie images will be produced")
-    else:
-        print("Movie mode set to OFF")
-
-
-    run_config = {
-        "save_frames" : movieOutput,
-        "frame_interval" : frameMod,
-        "output_dpi" : myDPI,
-        "simulation_name" : args.outname,
-        "max_frames" : totFrames, #(implicit in frameMod currently)
-        "n_steps" : n    
-    }
-
-    params, modelClass = setModelParams(model)
+    run_config = make_run_config(args, verbose=True)
+    params, modelClass = setModelParams(args)
     for k,v in run_config.items():
         if not k in params.keys(): params[k] = v
-
 
     grid = SimulationGrid(params["grid_size"], params["grid_spacing"])
     grid.seed(params["seed"])
