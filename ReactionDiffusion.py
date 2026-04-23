@@ -191,6 +191,7 @@ class MatplotlibRenderer:
     """
 
     def __init__(self, params: dict):
+        self.backend                 = "Matplotlib"
         self.simulation_name         = params["simulation_name"]
         self.output_directory        = self.simulation_name + "_images"
         self.colormap                = params.get("colormap", plt.cm.viridis)
@@ -208,6 +209,19 @@ class MatplotlibRenderer:
             "bg": self.bg,
             "output_directory_created": self.output_directory_created
         }
+
+
+    def __iter__(self): return iter(self._cfg)        # yields keys
+
+    def __len__(self): return len(self._cfg)
+    
+    def __getitem__(self, k): return self._cfg[k]
+    
+    def __repr__(self):
+        description = f'Renderer ({self.backend}):\n'
+        for k in list(self):
+            description += f'  {k:20s}{self[k]}\n'
+        return description
 
     def params(self):
         return self._cfg
@@ -338,6 +352,7 @@ if _HAS_PILLOW:
         DEFAULT_SIZE_INCHES = 5.0
 
         def __init__(self, params: dict):
+
             # Inject neutral defaults so the base class is satisfied
             # without requiring the caller to supply colormap or bg.
             render_params = dict(params)
@@ -345,6 +360,7 @@ if _HAS_PILLOW:
             render_params.setdefault("bg", "black")
             super().__init__(render_params)
 
+            self.backend = 'Pillow'
             self.size_inches = params.get("output_size_inches", self.DEFAULT_SIZE_INCHES)
 
         def _to_image(self, M: np.ndarray) -> Image.Image:
