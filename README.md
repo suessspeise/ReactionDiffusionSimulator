@@ -1,32 +1,5 @@
 # ReactionDiffusionSimulator
 
-## Refactor roadmap
-
-- **✅ 1.0 — produce reference output for verification**
-- **✅ 1.1 — Eliminate the duplicate functions and legacy wrappers** 
-- **✅ 1.2 — Kill the globals**
-- **✅ 1.3 — Fix the `makeImg` mutation bug**
-- **✅ 2.1 — Create the class, move data into it**
-- **✅ 2.2 — Move seeding logic in**
-- **✅ 2.3 — Move `laplacian_operator` in**
-- **✅ 3.1 — Abstract base class**
-- **✅ 3.2 — Implement `GrayScott` subclass**
-- **✅ 3.3 — Implement `GiererMeinhardt` and `FitzHughNagumo`**
-- **✅ 3.4 — figure out how to actually use the OOP models, without skipping more steps.**
-- **✅ 4.1 — Wrap `makeImg` in a `Renderer` class**
-- **✅ 4.2 - Make a function that selects frams for saving**
-- **✅ 4.3 — seperate functionality of `arg_parse`**
-- **✅ 4.4 — clean up main and encapsulate run config creation**
-- **✅ 4.5 - Create ExperimentLibrary class**
-- **✅ 4.6 - replace setModelParams with use of Experiment class in main**
-- **✅ 4.7 - augment functionality of ExperimentLibrary class**
-`__repr__`, `__iter__`, `__contains__`, `__getitem__`, `__len__`, 
-- **✅ 5.0 implement random seeds**
-- **✅ 6.0 Pillow Renderer**
-- **7.0 augment CLI interface capabilities**
-- **8.0 more comprehensive class level documentation**
-
-
 ### [Watch an example simulation on YouTube.](https://youtu.be/jFM8qlKXyp0)
 Simulates Reaction Diffusion models
 This tool simulates a number of reaction-diffusion systems and produces [Turing patterns](https://en.wikipedia.org/wiki/Turing_pattern). Optionally, the images may be saved sequentially and can output images to string together in an animation. 
