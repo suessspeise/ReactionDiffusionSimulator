@@ -22,7 +22,7 @@
 - **✅ 4.7 - augment functionality of ExperimentLibrary class**
 `__repr__`, `__iter__`, `__contains__`, `__getitem__`, `__len__`, 
 - **✅ 5.0 implement random seeds**
-- **6.0 Pillow Renderer**
+- **✅ 6.0 Pillow Renderer**
 - **7.0 augment CLI interface capabilities**
 - **8.0 more comprehensive class level documentation**
 
