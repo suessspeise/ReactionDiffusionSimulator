@@ -148,12 +148,11 @@ class SimulationGrid:
 
         return Lu, Lv
 
-class Renderer:
+class MatplotlibRenderer:
     """
     Matplotlib-based renderer for simulation field snapshots.
 
-    Owns all rendering configuration. The simulation is entirely
-    agnostic of how or whether frames are saved.
+    Owns all rendering configuration. 
 
     Parameters
     ----------
@@ -284,17 +283,17 @@ class Renderer:
         """
         self._render(grid.v, label)
 
-class GrayscaleRenderer(Renderer):
+class PillowRenderer(MatplotlibRenderer):
     """
     Grayscale Pillow-based renderer for simulation field snapshots.
 
     Produces grayscale PNG images without matplotlib figure overhead,
     making frame saving significantly faster for large movie runs.
-    Unlike the base Renderer, this class can also return PIL.Image
-    objects directly, which display inline in Jupyter notebooks.
+    This class can also return PIL.Image objects directly, which display 
+    inline in Jupyter notebooks.
 
     Inherits output directory management, path building, and the
-    save_frame / save_image interface from Renderer.
+    save_frame / save_image interface from MatplotlibRenderer.
 
     Parameters
     ----------
@@ -744,7 +743,7 @@ class ExperimentLibrary:
         -------
         model : ReactionDiffusionModel
         grid  : SimulationGrid
-        renderer : Renderer
+        renderer : MatplotlibRenderer
         """
         if name not in self._EXPERIMENTS:
             raise ValueError(
@@ -764,7 +763,7 @@ class ExperimentLibrary:
 
         render_params = dict(spec["renderer"])
         render_params["simulation_name"] = simulation_name or name
-        renderer = Renderer(render_params)
+        renderer = MatplotlibRenderer(render_params)
 
         return model, grid, renderer
 
