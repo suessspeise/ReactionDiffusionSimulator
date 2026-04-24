@@ -1,25 +1,28 @@
 #!/usr/bin/env python
 
 """
-Jens Luebeck
-UC San Diego, Bioinformatics & Systems Biology
-jluebeck@ucsd.edu
+ReactionDiffusion - 2D reaction-diffusion simulator
+====================================================
+Simulates spatiotemporal pattern formation on a 2D grid using three classic
+partial-differential-equation models:
+ 
+- **Gray-Scott** — feed/kill kinetics producing spots, mazes, coral, and worms.
+- **Gierer-Meinhardt** — activator-inhibitor system generating Turing patterns.
+- **FitzHugh-Nagumo** — excitable medium that develops travelling spiral waves.
+ 
+Key components
+--------------
+SimulationGrid          Owns the spatial domain and field arrays (U, V).
+ReactionDiffusionModel  Abstract base; subclasses implement the reaction terms.
+MatplotlibRenderer      Saves PNG snapshots; PillowRenderer is available when
+                        Pillow is installed.
+ExperimentLibrary       Curated parameter sets accessible by name.
+ 
+Run from the command line to launch an interactive model/pattern selector, or
+import as a library and call ``ExperimentLibrary().fetch(name)`` to obtain a
+pre-configured (model, grid, renderer) bundle.
 
-Simulates Gray-Scott reaction diffusion model and can produce images for use in animations
-
-Example usage:
-
-    python ReactionDiffusion.py -o my_simulation --moviemode -n 10000
-
-    This will output files with the prefix "OutputPrefix" into a directory of the same name, and as
-the moviemode flag is set, it will store 250 images for animation. User will be prompted for model type
-
-Example usage 2:
-
-    python ReactionDiffusion.py -o my_simulation2 -m GM -n 5000
-
-    Instead uses the Gierer-Meinhardt activator-inhibitor model (-gm).
-
+Jens Luebeck, UC San Diego, Bioinformatics & Systems Biology, jluebeck@ucsd.edu
 """
 
 import os
@@ -216,7 +219,7 @@ class MatplotlibRenderer:
     def __len__(self): return len(self._cfg)
     
     def __getitem__(self, k): return self._cfg[k]
-    
+
     def __repr__(self):
         description = f'Renderer ({self.backend}):\n'
         for k in list(self):
